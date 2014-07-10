@@ -1,29 +1,5 @@
-# vim:ft=zsh ts=2 sw=2 sts=2
-#
 # jwalter's Theme - https://github.com/jeffwalter/jwalter.zsh-theme
 # Based heavily on agnoster's Theme - https://gist.github.com/3712874
-#
-# # README
-#
-# In order for this theme to render correctly, you will need a
-# [Powerline-patched font](https://github.com/Lokaltog/powerline-fonts).
-#
-# In addition, I recommend the
-# [Solarized theme](https://github.com/altercation/solarized/) and, if you're
-# using it on Mac OS X, [iTerm 2](http://www.iterm2.com/) over Terminal.app -
-# it has significantly better color fidelity.
-#
-# # Goals
-#
-# The aim of this theme is to only show you *relevant* information. Like most
-# prompts, it will only show git information when in a git working directory.
-# However, it goes a step further: everything from the current user and
-# hostname to whether the last call exited with an error to whether background
-# jobs are running in this shell will all be displayed automatically when
-# appropriate.
-
-### Segment drawing
-# A few utility functions to make it easy and re-usable to draw segmented prompts
 
 SEGMENT_BACKGROUND=""
 SEGMENT_SEPARATOR=""
@@ -71,7 +47,7 @@ prompt_userhost() {
 	local USER
 	USER="$(whoami)"
 
-	if [[ "${USER}" != "${DEFAULT_USER}" || -n "${SSH_CLIENT}" ]]; then
+	if [ "${USER}" != "${DEFAULT_USER}" ] || [ -n "${SSH_CLIENT}" ]; then
 		segment black default "%(!.%{%F{yellow}%}.)${USER}@%m"
 	fi
 }
@@ -79,19 +55,24 @@ prompt_userhost() {
 prompt_git() {
 	local GIT_PATH GIT_UNTRACKED GIT_MODIFIED GIT_REMOVED GIT_STAGED GIT_AHEAD GIT_BEHIND GIT_BRANCH GIT_COMMIT GIT_TAG GIT_STATS
 
-	if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+	if git rev-parse --is-inside-work-tree &>/dev/null; then
 		GIT_PATH="$(git rev-parse --git-dir 2>/dev/null)"
 
 		eval "$(git status --porcelain 2>&1 | awk '/^\?\?/ {untracked++;} /^[ADMR]/ {staged++;} /^ M/ {modified++} /^ D/ {removed++;} END {printf ("GIT_UNTRACKED=%u\nGIT_MODIFIED=%u\nGIT_REMOVED=%u\nGIT_STAGED=%u\n", untracked, modified, removed, staged);}')"
 		eval "$(git status 2>&1 | awk '/branch is ahead/ {ahead=$(NF-1);} /branch is behind/ {behind=$7;} /different commits each/ {ahead=$3; behind=$5;} /On branch/ {branch=$NF;} END {printf ("GIT_AHEAD=%u\nGIT_BEHIND=%u\nGIT_BRANCH=\"%s\"\n", ahead, behind, branch);}')"
+		if [ -z "${GIT_BRANCH}" ]; then
+			GIT_BRANCH="$(git branch 2>/dev/null | awk '/^\* / {print $2}')"
+			if [ -z "${GIT_BRANCH}" ]; then
+				GIT_BRANCH="NO BRANCH"
+			fi
+		fi
 		GIT_COMMIT="$(git rev-parse HEAD 2>/dev/null | grep -ioE '^[0-9a-f]{10}' | head -n 1)"
-		if [[ -z "${GIT_COMMIT}" ]]; then
+		if [ -z "${GIT_COMMIT}" ]; then
 			GIT_COMMIT="initial"
 		fi
 		GIT_TAG="$(git describe --tags 2>/dev/null)"
 
-
-		if [[ -n "$(parse_git_dirty 2>&1)" ]]; then
+		if [ -n "$(parse_git_dirty 2>&1)" ]; then
 			segment yellow black
 		else
 			segment green black
@@ -103,22 +84,22 @@ prompt_git() {
 		fi
 
 		GIT_STATS=""
-		if [[ ${GIT_UNTRACKED} -gt 0 ]]; then
+		if [ "${GIT_UNTRACKED}" -gt 0 ]; then
 			GIT_STATS="${GIT_STATS}…${GIT_UNTRACKED}"
 		fi
-		if [[ ${GIT_MODIFIED} -gt 0 ]]; then
+		if [ "${GIT_MODIFIED}" -gt 0 ]; then
 			GIT_STATS="${GIT_STATS}±${GIT_MODIFIED}"
 		fi
-		if [[ ${GIT_REMOVED} -gt 0 ]]; then
+		if [ "${GIT_REMOVED}" -gt 0 ]; then
 			GIT_STATS="${GIT_STATS}-${GIT_REMOVED}"
 		fi
-		if [[ ${GIT_STAGED} -gt 0 ]]; then
+		if [ "${GIT_STAGED}" -gt 0 ]; then
 			GIT_STATS="${GIT_STATS}+${GIT_STAGED}"
 		fi
-		if [[ ${GIT_AHEAD} -gt 0 ]]; then
+		if [ "${GIT_AHEAD}" -gt 0 ]; then
 			GIT_STATS="${GIT_STATS}↑${GIT_AHEAD}"
 		fi
-		if [[ ${GIT_BEHIND} -gt 0 ]]; then
+		if [ "${GIT_BEHIND}" -gt 0 ]; then
 			GIT_STATS="${GIT_STATS}↓${GIT_BEHIND}"
 		fi
 
@@ -126,14 +107,17 @@ prompt_git() {
 			echo -n " ${GIT_STATS}"
 		fi
 
-		if [[ -e "${GIT_PATH}/BISECT_LOG" ]]; then
+		if [ -e "${GIT_PATH}/BISECT_LOG" ]; then
 			echo -n " (Bisecting)"
 
-		elif [[ -e "${GIT_PATH}/MERGE_HEAD" ]]; then
+		elif [ -e "${GIT_PATH}/MERGE_HEAD" ]; then
 			echo -n " (Merging)"
 
-		elif [[ -e "${GIT_PATH}/rebase" || -e "${GIT_PATH}/rebase-apply" || -e "${GIT_PATH}/rebase-merge" || -e "${GIT_PATH}/../.dotest" ]]; then
+		elif [ -e "${GIT_PATH}/rebase" ] || [ -e "${GIT_PATH}/rebase-apply" ] || [ -e "${GIT_PATH}/rebase-merge" ] || [ -e "${GIT_PATH}/../.dotest" ]; then
 			echo -n " (Rebasing)"
+
+		elif [ "$(git rev-parse --is-bare-repository 2>/dev/null)" = "true" ]; then
+			echo -n " (Bare)"
 		fi
 	fi
 }
@@ -162,7 +146,7 @@ prompt_status() {
 
 ## Main prompt
 build_prompt() {
-	RETVAL=$?
+	RETVAL="$?"
 	prompt_status
 	prompt_userhost
 	prompt_dir
