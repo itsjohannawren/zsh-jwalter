@@ -1,6 +1,8 @@
 # jwalter's Theme - https://github.com/jeffwalter/jwalter.zsh-theme
 # Based heavily on agnoster's Theme - https://gist.github.com/3712874
 
+SYS_NET_FS="nfs afs smb smbfs cifs"
+
 SEGMENT_BACKGROUND=""
 SEGMENT_SEPARATOR=""
 
@@ -43,6 +45,29 @@ segments_end() {
 	SEGMENT_BACKGROUND=""
 }
 
+is_network_path() {
+	local TEST_PATH SYS_MOUNTS SYS_MOUNT LONGEST_FS LONGEST_MOUNT
+	TEST_PATH="${1}"
+
+	for SYS_MOUNT in $(mount | awk '$2=="on" {mnt=$3} $3=="on" {mnt=$4} $4=="type" {fs=$5} $5=="type" {fs=$6} $4 ~ /^\(/ {sub(/\(/, "", $4); sub(/,/, "", $4); fs=$4} $5 ~ /^\(/ {sub(/\(/, "", $5); sub(/,/, "", $5); fs=$5} (mnt!="" && fs!="") {printf("%s:%s\n", fs, mnt)}'); do
+		eval set -- "${SYS_MOUNT/:/ }"
+		if [ "${1}" != "autofs" ]; then
+			if echo "${TEST_PATH}" | grep -qE "^${2}"; then
+				if [ "${#2}" -gt "${#LONGEST_MOUNT}" ]; then
+					LONGEST_FS="${1}"
+					LONGEST_MOUNT="${2}"
+				fi
+			fi
+		fi
+	done
+
+	if echo "${SYS_NET_FS}" | grep -q "\\b${LONGEST_FS}\\b"; then
+		return 0
+	else
+		return 1
+	fi
+}
+
 prompt_userhost() {
 	local USER
 	USER="$(whoami)"
@@ -54,12 +79,34 @@ prompt_userhost() {
 
 prompt_git() {
 	local GIT_PATH GIT_UNTRACKED GIT_MODIFIED GIT_REMOVED GIT_STAGED GIT_AHEAD GIT_BEHIND GIT_BRANCH GIT_COMMIT GIT_TAG GIT_STATS
+	local GIT_PATH_REAL SYS_MOUNTS SYS_MOUNT LONGEST_MOUNT LONGEST_FS
 
 	if git rev-parse --is-inside-work-tree &>/dev/null; then
 		GIT_PATH="$(git rev-parse --git-dir 2>/dev/null)"
 
-		eval "$(git status --porcelain 2>&1 | awk '/^\?\?/ {untracked++;} /^[ADMR]/ {staged++;} /^ M/ {modified++} /^ D/ {removed++;} END {printf ("GIT_UNTRACKED=%u\nGIT_MODIFIED=%u\nGIT_REMOVED=%u\nGIT_STAGED=%u\n", untracked, modified, removed, staged);}')"
-		eval "$(git status 2>&1 | awk '/branch is ahead/ {ahead=$(NF-1);} /branch is behind/ {behind=$7;} /different commits each/ {ahead=$3; behind=$5;} /On branch/ {branch=$NF;} END {printf ("GIT_AHEAD=%u\nGIT_BEHIND=%u\nGIT_BRANCH=\"%s\"\n", ahead, behind, branch);}')"
+		# Are we on a network mount?
+		if is_network_path "$(cd "${GIT_PATH}" &>/dev/null && pwd -P)"; then
+			segment cyan black
+			GIT_UNTRACKED="0"
+			GIT_MODIFIED="0"
+			GIT_REMOVED="0"
+			GIT_STAGED="0"
+			GIT_AHEAD="0"
+			GIT_BEHIND="0"
+			GIT_TAG=""
+
+		else
+			eval "$(git status --porcelain 2>&1 | awk '/^\?\?/ {untracked++;} /^[ADMR]/ {staged++;} /^ M/ {modified++} /^ D/ {removed++;} END {printf ("GIT_UNTRACKED=%u\nGIT_MODIFIED=%u\nGIT_REMOVED=%u\nGIT_STAGED=%u\n", untracked, modified, removed, staged);}')"
+			eval "$(git status 2>&1 | awk '/branch is ahead/ {ahead=$(NF-1);} /branch is behind/ {behind=$7;} /different commits each/ {ahead=$3; behind=$5;} /On branch/ {branch=$NF;} END {printf ("GIT_AHEAD=%u\nGIT_BEHIND=%u\nGIT_BRANCH=\"%s\"\n", ahead, behind, branch);}')"
+			GIT_TAG="$(git describe --tags 2>/dev/null)"
+
+			if [ -n "$(parse_git_dirty 2>&1)" ]; then
+				segment yellow black
+			else
+				segment green black
+			fi
+		fi
+
 		if [ -z "${GIT_BRANCH}" ]; then
 			GIT_BRANCH="$(git branch 2>/dev/null | awk '/^\* / {print $2}')"
 			if [ -z "${GIT_BRANCH}" ]; then
@@ -69,13 +116,6 @@ prompt_git() {
 		GIT_COMMIT="$(git rev-parse HEAD 2>/dev/null | grep -ioE '^[0-9a-f]{10}' | head -n 1)"
 		if [ -z "${GIT_COMMIT}" ]; then
 			GIT_COMMIT="initial"
-		fi
-		GIT_TAG="$(git describe --tags 2>/dev/null)"
-
-		if [ -n "$(parse_git_dirty 2>&1)" ]; then
-			segment yellow black
-		else
-			segment green black
 		fi
 
 		echo -n " ${GIT_BRANCH}→${GIT_COMMIT}"
@@ -123,7 +163,11 @@ prompt_git() {
 }
 
 prompt_dir() {
-	segment blue black '%~'
+	if is_network_path "$(pwd)"; then
+		segment blue black "(net) %~"
+	else
+		segment blue black "%~"
+	fi
 }
 
 prompt_status() {
