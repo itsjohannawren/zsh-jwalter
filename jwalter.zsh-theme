@@ -98,7 +98,14 @@ prompt_git() {
 		else
 			eval "$(git status --porcelain 2>&1 | awk '/^\?\?/ {untracked++;} /^[ADMR]/ {staged++;} /^ M/ {modified++} /^ D/ {removed++;} END {printf ("GIT_UNTRACKED=%u\nGIT_MODIFIED=%u\nGIT_REMOVED=%u\nGIT_STAGED=%u\n", untracked, modified, removed, staged);}')"
 			eval "$(git status 2>&1 | awk '/branch is ahead/ {ahead=$(NF-1);} /branch is behind/ {behind=$7;} /different commits? each/ {ahead=$3; behind=$5;} /On branch/ {branch=$NF;} END {printf ("GIT_AHEAD=%u\nGIT_BEHIND=%u\nGIT_BRANCH=\"%s\"\n", ahead, behind, branch);}')"
-			GIT_TAG="$(git describe --tags 2>/dev/null)"
+			GIT_TAG="$(git tag 2>/dev/null)"
+			if [ -n "${GIT_TAG}" ]; then
+				if [ "${GIT_TAG}" != "$(git describe --tags 2>/dev/null)" ]; then
+					GIT_TAG="ᕮ${GIT_TAG}"
+				else
+					GIT_TAG="ᑕ${GIT_TAG}"
+				fi
+			fi
 
 			if [ -n "$(parse_git_dirty 2>&1)" ]; then
 				segment yellow black
@@ -120,7 +127,7 @@ prompt_git() {
 
 		echo -n " ${GIT_BRANCH}→${GIT_COMMIT}"
 		if [ -n "${GIT_TAG}" ]; then
-			echo -n ":${GIT_TAG}"
+			echo -n " ${GIT_TAG}"
 		fi
 
 		GIT_STATS=""
