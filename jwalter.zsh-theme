@@ -120,7 +120,7 @@ prompt_git() {
 		fi
 
 		if [ -z "${GIT_BRANCH}" ]; then
-			GIT_BRANCH="$(git branch 2>/dev/null | awk '/^\* / {print $2}')"
+			GIT_BRANCH="$(git branch 2>/dev/null | awk '$3=="" {printf $2} /^* \(no branch, rebasing/ {sub(/\)$/,"",$5); printf $5}')"
 			if [ -z "${GIT_BRANCH}" ]; then
 				GIT_BRANCH="NO BRANCH"
 			fi
