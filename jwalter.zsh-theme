@@ -81,6 +81,10 @@ prompt_git() {
 	local GIT_PATH GIT_UNTRACKED GIT_MODIFIED GIT_REMOVED GIT_STAGED GIT_AHEAD GIT_BEHIND GIT_BRANCH GIT_COMMIT GIT_TAG GIT_STATS
 	local GIT_PATH_REAL SYS_MOUNTS SYS_MOUNT LONGEST_MOUNT LONGEST_FS
 
+	if ! which git &>/dev/null; then
+		return 0
+	fi
+
 	if git rev-parse --is-inside-work-tree &>/dev/null; then
 		GIT_PATH="$(git rev-parse --git-dir 2>/dev/null)"
 
@@ -96,7 +100,7 @@ prompt_git() {
 			GIT_TAG=""
 
 		else
-			eval "$(git status -s 2>&1 | awk '/^\?\?/ {untracked++;} /^[^ ?]/ {staged++;} /^ M/ {modified++} /^ D/ {removed++;} END {printf ("GIT_UNTRACKED=%u\nGIT_MODIFIED=%u\nGIT_REMOVED=%u\nGIT_STAGED=%u\n", untracked, modified, removed, staged);}')"
+			eval "$(git status -s 2>&1 | awk '/^\?\?/ {untracked++;} /^[^ ?]/ {staged++;} /^.M/ {modified++} /^ D/ {removed++;} END {printf ("GIT_UNTRACKED=%u\nGIT_MODIFIED=%u\nGIT_REMOVED=%u\nGIT_STAGED=%u\n", untracked, modified, removed, staged);}')"
 			eval "$(git status -b 2>&1 | awk '/branch is ahead/ {ahead=$(NF-1);} /branch is behind/ {behind=$7;} /different commits? each/ {ahead=$3; behind=$5;} /On branch/ {branch=$NF;} END {printf ("GIT_AHEAD=%u\nGIT_BEHIND=%u\nGIT_BRANCH=\"%s\"\n", ahead, behind, branch);}')"
 			GIT_REV="$(git rev-parse HEAD 2>/dev/null | head -n 1)"
 			if [ "${GIT_REV}" != "HEAD" ]; then
@@ -175,6 +179,91 @@ prompt_git() {
 	fi
 }
 
+prompt_svn() {
+	local SVN_STATUS_ADDED SVN_STATUS_CONFLICTED SVN_STATUS_DELETED SVN_STATUS_MODIFIED SVN_STATUS_REPLACED SVN_STATUS_UNVERSIONED SVN_STATUS_MISSING SVN_STATUS_OBSTRUCTED SVN_STATUS_LOCKED
+	local SVN_PATH SVN_REPO_URL SVN_REPO_ROOT SVN_REPO_UUID SVN_REV SVN_NODE SVN_LAST_REV SVN_LAST_DATE
+
+	if ! which svn &>/dev/null; then
+		return 0
+	fi
+
+	eval "$(svn info 2>/dev/null | awk '/^Working Copy Root Path:/ {$1=$2=$3=$4=""; gsub(/^[\t ]+/,"",$0); printf("SVN_PATH=\"%s\"\n",$0);} /^URL:/ {$1=""; gsub(/^[\t ]+/,"",$0); printf("SVN_REPO_URL=\"%s\"\n",$0);} /^Repository Root:/ {$1=$2=""; gsub(/^[\t ]+/,"",$0); printf("SVN_REPO_ROOT=\"%s\"\n",$0);} /^Repository UUID:/ {$1=$2=""; gsub(/^[\t ]+/,"",$0); printf("SVN_REPO_UUID=\"%s\"\n",$0);} /^Revision:/ {$1=""; gsub(/^[\t ]+/,"",$0); printf("SVN_REV=\"%s\"\n",$0);} /^Node Kind:/ {$1=$2=""; gsub(/^[\t ]+/,"",$0); printf("SVN_NODE=\"%s\"\n",$0);} /^Last Changed Rev:/ {$1=$2=$3=""; gsub(/^[\t ]+/,"",$0); printf("SVN_LAST_REV=\"%s\"\n",$0);} /^Last Changed Date:/ {$1=$2=$3=""; gsub(/^[\t ]+/,"",$0); printf("SVN_LAST_DATE=\"%s\"\n",$0);}')"
+	if [ -z "${SVN_PATH}" ]; then
+		return 0
+	fi
+
+	if is_network_path "$(cd "${SVN_PATH}" &>/dev/null && pwd -P)"; then
+		if [ "${SVN_STATUS_NET}" = "limit" ]; then
+			eval "$(svn status --depth=immediate | awk '/^A/ {added++;} /^(C|.C|.{6}C)/ {conflicted++;} /^D/ {deleted++;} /^(M|.M)/ {modified++;} /^R/ {replaced++;} /^\?/ {unversioned++;} /^!/ {missing++;} /^~/ {obstructioned++;} /^..(L|...K)/ {locked++;} END {printf("SVN_STATUS_ADDED=%u\nSVN_STATUS_CONFLICTED=%u\nSVN_STATUS_DELETED=%u\nSVN_STATUS_MODIFIED=%u\nSVN_STATUS_REPLACED=%u\nSVN_STATUS_UNVERSIONED=%u\nSVN_STATUS_MISSING=%u\nSVN_STATUS_OBSTRUCTED=%u\nSVN_STATUS_LOCKED=%u\n",added,conflicted,deleted,modified,replaced,unversioned,missing,obstructioned,locked);}')"
+		fi
+	else
+		pushd "${SVN_PATH}" &>/dev/null
+		eval "$(svn status | awk '/^A/ {added++;} /^(C|.C|.{6}C)/ {conflicted++;} /^D/ {deleted++;} /^(M|.M)/ {modified++;} /^R/ {replaced++;} /^\?/ {unversioned++;} /^!/ {missing++;} /^~/ {obstructioned++;} /^..(L|...K)/ {locked++;} END {printf("SVN_STATUS_ADDED=%u\nSVN_STATUS_CONFLICTED=%u\nSVN_STATUS_DELETED=%u\nSVN_STATUS_MODIFIED=%u\nSVN_STATUS_REPLACED=%u\nSVN_STATUS_UNVERSIONED=%u\nSVN_STATUS_MISSING=%u\nSVN_STATUS_OBSTRUCTED=%u\nSVN_STATUS_LOCKED=%u\n",added,conflicted,deleted,modified,replaced,unversioned,missing,obstructioned,locked);}')"
+		popd &>/dev/null
+	fi
+
+	if \
+		[ "${SVN_STATUS_CONFLICTED}" != "0" ] || \
+		[ "${SVN_STATUS_MISSING}" != "0" ] || \
+		[ "${SVN_STATUS_OBSTRUCTED}" != "0" ]
+	then
+		segment red black
+	elif \
+		[ "${SVN_STATUS_ADDED}" != "0" ] || \
+		[ "${SVN_STATUS_DELETED}" != "0" ] || \
+		[ "${SVN_STATUS_MODIFIED}" != "0" ] || \
+		[ "${SVN_STATUS_REPLACED}" != "0" ] || \
+		[ "${SVN_STATUS_UNVERSIONED}" != "0" ] || \
+		[ "${SVN_STATUS_LOCKED}" != "0" ]
+	then
+		segment yellow black
+	else
+		segment green black
+	fi
+
+	echo -n " (svn)→${SVN_REV}"
+	if [ -n "${SVN_TAG}" ]; then
+		echo -n " ${SVN_TAG}"
+	fi
+
+	SVN_STATS=""
+	if [ "${SVN_STATUS_UNVERSIONED}" -gt 0 ]; then
+		SVN_STATS="${SVN_STATS}…${SVN_STATUS_UNVERSIONED}"
+	fi
+	if [ "${SVN_STATUS_ADDED}" -gt 0 ]; then
+		SVN_STATS="${SVN_STATS}+${SVN_STATUS_ADDED}"
+	fi
+	if [ "${SVN_STATUS_MODIFIED}" -gt 0 ]; then
+		SVN_STATS="${SVN_STATS}±${SVN_STATUS_MODIFIED}"
+	fi
+	if [ "${SVN_STATUS_DELETED}" -gt 0 ]; then
+		SVN_STATS="${SVN_STATS}-${SVN_STATUS_DELETED}"
+	fi
+	if [ "${SVN_STATUS_MISSING}" -gt 0 ]; then
+		SVN_STATS="${SVN_STATS}?${SVN_STATUS_MISSING}"
+	fi
+	if [ "${SVN_STATUS_CONFLICTED}" -gt 0 ] || [ "${SVN_STATUS_OBSTRUCTED}" -gt 0 ]; then
+		SVN_STATS="${SVN_STATS}!$((SVN_STATUS_CONFLICTED + SVN_STATUS_OBSTRUCTED))"
+	fi
+	if [ "${SVN_STATUS_LOCKED}" -gt 0 ]; then
+		SVN_STATS="${SVN_STATS}${SVN_STATUS_LOCKED}"
+	fi
+	if [ "${SVN_REV}" != "${SVN_LAST_REV}" ]; then
+		SVN_STATS="${SVN_STATS}↓$((SVN_LAST_REV - SVN_REV))"
+	fi
+
+	if [ -n "${SVN_STATS}" ]; then
+		echo -n " ${SVN_STATS}"
+	fi
+
+	if [ "${SVN_STATUS_OBSTRUCTED}" != "0" ]; then
+		echo -n " (Obstructed)"
+
+	elif [ "${SVN_STATUS_CONFLICTED}" != "0" ]; then
+		echo -n " (Conflicted)"
+	fi
+}
+
 prompt_dir() {
 	if is_network_path "$(pwd)"; then
 		segment blue black "(net) %~"
@@ -208,6 +297,7 @@ build_prompt() {
 	prompt_userhost
 	prompt_dir
 	prompt_git
+	prompt_svn
 	segments_end
 }
 
