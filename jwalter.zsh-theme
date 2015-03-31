@@ -52,7 +52,7 @@ is_network_path() {
 	for SYS_MOUNT in $(mount | awk '$2=="on" {mnt=$3} $3=="on" {mnt=$4} $4=="type" {fs=$5} $5=="type" {fs=$6} $4 ~ /^\(/ {sub(/\(/, "", $4); sub(/,/, "", $4); fs=$4} $5 ~ /^\(/ {sub(/\(/, "", $5); sub(/,/, "", $5); fs=$5} (mnt!="" && fs!="") {printf("%s:%s\n", fs, mnt)}'); do
 		eval set -- "${SYS_MOUNT/:/ }"
 		if [ "${1}" != "autofs" ]; then
-			if echo "${TEST_PATH}" | grep -qE "^${2}"; then
+			if grep -qE "^${2}" <<<"${TEST_PATH}"; then
 				if [ "${#2}" -gt "${#LONGEST_MOUNT}" ]; then
 					LONGEST_FS="${1}"
 					LONGEST_MOUNT="${2}"
@@ -61,7 +61,7 @@ is_network_path() {
 		fi
 	done
 
-	if echo "${SYS_NET_FS}" | grep -q "\\b${LONGEST_FS}\\b"; then
+	if grep -o "\\b${LONGEST_FS}\\b" <<<"${SYS_NET_FS}"; then
 		return 0
 	else
 		return 1
@@ -89,7 +89,7 @@ prompt_git() {
 		GIT_PATH="$(git rev-parse --git-dir 2>/dev/null)"
 
 		# Are we on a network mount?
-		if is_network_path "$(cd "${GIT_PATH}" &>/dev/null && pwd -P)"; then
+		if is_network_path "$(cd "${GIT_PATH}" &>/dev/null && pwd -P)" &>/dev/null; then
 			segment cyan black
 			GIT_UNTRACKED="0"
 			GIT_MODIFIED="0"
@@ -192,7 +192,7 @@ prompt_svn() {
 		return 0
 	fi
 
-	if is_network_path "$(cd "${SVN_PATH}" &>/dev/null && pwd -P)"; then
+	if is_network_path "$(cd "${SVN_PATH}" &>/dev/null && pwd -P)" &>/dev/null; then
 		if [ "${SVN_STATUS_NET}" = "limit" ]; then
 			eval "$(svn status --depth=immediate | awk '/^A/ {added++;} /^(C|.C|.{6}C)/ {conflicted++;} /^D/ {deleted++;} /^(M|.M)/ {modified++;} /^R/ {replaced++;} /^\?/ {unversioned++;} /^!/ {missing++;} /^~/ {obstructioned++;} /^..(L|...K)/ {locked++;} END {printf("SVN_STATUS_ADDED=%u\nSVN_STATUS_CONFLICTED=%u\nSVN_STATUS_DELETED=%u\nSVN_STATUS_MODIFIED=%u\nSVN_STATUS_REPLACED=%u\nSVN_STATUS_UNVERSIONED=%u\nSVN_STATUS_MISSING=%u\nSVN_STATUS_OBSTRUCTED=%u\nSVN_STATUS_LOCKED=%u\n",added,conflicted,deleted,modified,replaced,unversioned,missing,obstructioned,locked);}')"
 		fi
@@ -269,8 +269,9 @@ prompt_dir() {
 	if [ -n "${SSH_CLIENT}" ]; then
 		MESSAGES="${MESSAGES}, remote"
 	fi
-	if is_network_path "$(pwd)"; then
-		MESSAGES="${MESSAGES}, net fs"
+	NET_FS="$(is_network_path "$(pwd)")"
+	if [ "$?" = "0" ]; then
+		MESSAGES="${MESSAGES}, ${NET_FS}"
 	fi
 	MESSAGES="$(sed -e 's/^, //' <<<"${MESSAGES}")"
 
