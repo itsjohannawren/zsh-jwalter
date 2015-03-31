@@ -81,14 +81,19 @@ is_network_path() {
 }
 
 shell_daemon() {
-	local PARENT_ID PARENT_CMD
+	local PARENT_ID PARENT_CMD IS_SCREEN
 	PARENT_ID="${1:-$$}"
 
 	while [ "${PARENT_ID}" != "1" ]; do
-		#echo "PPID=${PARENT_ID} PCMD=$(ps -p "${PARENT_ID}" -o command=) PNAME=$(basename $(ps -p "${PARENT_ID}" -o command= | sed -e 's/^-*//' -e 's/ .*//' -e 's/:$//'))" 1>&2
 		PARENT_CMD="$(basename $(ps -p "${PARENT_ID}" -o command= | sed -e 's/^-*//' -e 's/ .*//' -e 's/:$//'))"
-		if grep -q "\\b${PARENT_CMD}:" <<<"${SYS_SHELL_DAEMONS}"; then
-			grep -o "\\b${PARENT_CMD}:\\S*" <<<"${SYS_SHELL_DAEMONS}"
+		if [ "${PARENT_CMD}" = "SCREEN" ]; then
+			IS_SCREEN="1"
+		elif grep -q "\\b${PARENT_CMD}:" <<<"${SYS_SHELL_DAEMONS}"; then
+			if [ -z "${IS_SCREEN}" ]; then
+				grep -o "\\b${PARENT_CMD}:\\S*" <<<"${SYS_SHELL_DAEMONS}"
+			else
+				grep -o "\\b${PARENT_CMD}:\\S*" <<<"${SYS_SHELL_DAEMONS}" | sed -e 's/$/+Screen/'
+			fi
 			return
 		fi
 		PARENT_ID="$(ps -p "${PARENT_ID}" -o ppid= | sed -e 's/ *//g')"
