@@ -85,8 +85,8 @@ shell_daemon() {
 	PARENT_ID="${1:-$$}"
 
 	while [ "${PARENT_ID}" != "1" ]; do
-		#echo "PPID=${PARENT_ID} PCMD=$(ps -p "${PARENT_ID}" -o command= | sed -e 's/^-*//') PNAME=$(basename $(ps -p "${PARENT_ID}" -o command= | sed -e 's/^-*//'))"
-		PARENT_CMD="$(basename $(ps -p "${PARENT_ID}" -o command= | sed -e 's/^-*//'))"
+		#echo "PPID=${PARENT_ID} PCMD=$(ps -p "${PARENT_ID}" -o command=) PNAME=$(basename $(ps -p "${PARENT_ID}" -o command= | sed -e 's/^-*//' -e 's/ .*//' -e 's/:$//'))" 1>&2
+		PARENT_CMD="$(basename $(ps -p "${PARENT_ID}" -o command= | sed -e 's/^-*//' -e 's/ .*//' -e 's/:$//'))"
 		if grep -q "\\b${PARENT_CMD}:" <<<"${SYS_SHELL_DAEMONS}"; then
 			grep -o "\\b${PARENT_CMD}:\\S*" <<<"${SYS_SHELL_DAEMONS}"
 			return
