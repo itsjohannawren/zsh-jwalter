@@ -2,11 +2,23 @@
 # Based heavily on agnoster's Theme - https://gist.github.com/3712874
 
 SYS_NET_FS="nfs afs smb smbfs cifs"
+SYS_SHELL_DAEMONS="
+	sshd:SSH
+	in.sshd:SSH
+	mosh-server:Mosh
+	telnetd:Telnet
+	in.telnetd:Telnet
+	agetty:Local
+	getty:Local
+	Terminal:Local
+	iTerm:Local xterm:Local
+"
 
 SEGMENT_BACKGROUND=""
 SEGMENT_SEPARATOR=""
 
 segment() {
+	local BACKGROUND FOREGROUND
 	if [ -n "${1}" ]; then
 		BACKGROUND="%K{$1}"
 	else
@@ -68,12 +80,65 @@ is_network_path() {
 	fi
 }
 
+shell_daemon() {
+	local PARENT_ID PARENT_CMD
+	PARENT_ID="${1:-$$}"
+
+	while [ "${PARENT_ID}" != "1" ]; do
+		#echo "PPID=${PARENT_ID} PCMD=$(ps -p "${PARENT_ID}" -o command= | sed -e 's/^-*//') PNAME=$(basename $(ps -p "${PARENT_ID}" -o command= | sed -e 's/^-*//'))"
+		PARENT_CMD="$(basename $(ps -p "${PARENT_ID}" -o command= | sed -e 's/^-*//'))"
+		if grep -q "\\b${PARENT_CMD}:" <<<"${SYS_SHELL_DAEMONS}"; then
+			grep -o "\\b${PARENT_CMD}:\\S*" <<<"${SYS_SHELL_DAEMONS}"
+			return
+		fi
+		PARENT_ID="$(ps -p "${PARENT_ID}" -o ppid= | sed -e 's/ *//g')"
+	done
+}
+
+prompt_status() {
+	local SYMBOLS
+	SYMBOLS=""
+
+	if [ "${RETVAL}" -ne 0 ]; then
+		SYMBOLS="${SYMBOLS}%{%F{red}%}✘"
+	fi
+	if [ "${UID}" -eq 0 ]; then
+		SYMBOLS="${SYMBOLS}%{%F{yellow}%}⚡"
+	fi
+	if [ "$(jobs -l | wc -l)" -gt 0 ]; then
+		SYMBOLS="${SYMBOLS}%{%F{cyan}%}⚙"
+	fi
+	if [ -n "${SYMBOLS}" ]; then
+		segment black default "${SYMBOLS}"
+	fi
+}
+
 prompt_userhost() {
-	local USER
+	local USER SHELL_DAEMON
 	USER="$(whoami)"
 
 	if [ "${USER}" != "${DEFAULT_USER}" ] || [ -n "${SSH_CLIENT}" ]; then
-		segment black default "%(!.%{%F{yellow}%}.)${USER}@%m"
+		SHELL_DAEMON="$(shell_daemon $$)"
+		if [ -n "${SHELL_DAEMON}" ]; then
+			segment black default "%(!.%{%F{yellow}%}.)${USER}@%m (${SHELL_DAEMON/*:/})"
+		else
+			segment black default "%(!.%{%F{yellow}%}.)${USER}@%m"
+		fi
+	fi
+}
+
+prompt_dir() {
+	MESSAGES=""
+	NET_FS="$(is_network_path "$(pwd)")"
+	if [ "$?" = "0" ]; then
+		MESSAGES="${MESSAGES}, ${NET_FS}"
+	fi
+	MESSAGES="$(sed -e 's/^, //' <<<"${MESSAGES}")"
+
+	if [ -n "${MESSAGES}" ]; then
+		segment blue black "(${MESSAGES}) %~"
+	else
+		segment blue black "%~"
 	fi
 }
 
@@ -261,42 +326,6 @@ prompt_svn() {
 
 	elif [ "${SVN_STATUS_CONFLICTED}" != "0" ]; then
 		echo -n " (Conflicted)"
-	fi
-}
-
-prompt_dir() {
-	MESSAGES=""
-	if [ -n "${SSH_CLIENT}" ]; then
-		MESSAGES="${MESSAGES}, remote"
-	fi
-	NET_FS="$(is_network_path "$(pwd)")"
-	if [ "$?" = "0" ]; then
-		MESSAGES="${MESSAGES}, ${NET_FS}"
-	fi
-	MESSAGES="$(sed -e 's/^, //' <<<"${MESSAGES}")"
-
-	if [ -n "${MESSAGES}" ]; then
-		segment blue black "(${MESSAGES}) %~"
-	else
-		segment blue black "%~"
-	fi
-}
-
-prompt_status() {
-	local SYMBOLS
-	SYMBOLS=""
-
-	if [ "${RETVAL}" -ne 0 ]; then
-		SYMBOLS="${SYMBOLS}%{%F{red}%}✘"
-	fi
-	if [ "${UID}" -eq 0 ]; then
-		SYMBOLS="${SYMBOLS}%{%F{yellow}%}⚡"
-	fi
-	if [ "$(jobs -l | wc -l)" -gt 0 ]; then
-		SYMBOLS="${SYMBOLS}%{%F{cyan}%}⚙"
-	fi
-	if [ -n "${SYMBOLS}" ]; then
-		segment black default "${SYMBOLS}"
 	fi
 }
 
