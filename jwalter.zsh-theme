@@ -265,8 +265,17 @@ prompt_svn() {
 }
 
 prompt_dir() {
+	MESSAGES=""
+	if [ -n "${SSH_CLIENT}" ]; then
+		MESSAGES="${MESSAGES}, remote"
+	fi
 	if is_network_path "$(pwd)"; then
-		segment blue black "(net) %~"
+		MESSAGES="${MESSAGES}, net fs"
+	fi
+	MESSAGES="$(sed -e 's/^, //' <<<"${MESSAGES}")"
+
+	if [ -n "${MESSAGES}" ]; then
+		segment blue black "(${MESSAGES}) %~"
 	else
 		segment blue black "%~"
 	fi
