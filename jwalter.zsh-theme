@@ -134,7 +134,7 @@ prompt_userhost() {
 
 prompt_dir() {
 	MESSAGES=""
-	NET_FS="$(is_network_path "$(pwd)")"
+	NET_FS="$(is_network_path "$(pwd -P)")"
 	if [ "$?" = "0" ]; then
 		MESSAGES="${MESSAGES}, ${NET_FS}"
 	fi
