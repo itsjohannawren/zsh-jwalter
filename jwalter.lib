@@ -337,12 +337,17 @@ prompt_svn() {
 ## Main prompt
 build_prompt() {
 	RETVAL="$?"
-	prompt_status
-	prompt_userhost
-	prompt_dir
-	prompt_git
-	prompt_svn
-	segments_end
+
+	PROMPT_STRING=""
+
+	PROMPT_STRING="${PROMPT_STRING}$(prompt_status)"
+	PROMPT_STRING="${PROMPT_STRING}$(prompt_userhost)"
+	PROMPT_STRING="${PROMPT_STRING}$(prompt_dir)"
+	PROMPT_STRING="${PROMPT_STRING}$(prompt_git)"
+	PROMPT_STRING="${PROMPT_STRING}$(prompt_svn)"
+	PROMPT_STRING="${PROMPT_STRING}$(segments_end)"
+
+	echo -n "${PROMPT_STRING}"
 }
 
 PROMPT='%{%f%b%k%}$(build_prompt) '
