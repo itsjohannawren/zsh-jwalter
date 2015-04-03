@@ -11,7 +11,9 @@ SYS_SHELL_DAEMONS="
 	agetty:Local
 	getty:Local
 	Terminal:Local
-	iTerm:Local xterm:Local
+	iTerm:Local
+	xterm:Local
+	Konsole:Local
 "
 
 SEGMENT_BACKGROUND=""
@@ -292,9 +294,6 @@ prompt_svn() {
 	fi
 
 	echo -n " (svn)→${SVN_REV}"
-	if [ -n "${SVN_TAG}" ]; then
-		echo -n " ${SVN_TAG}"
-	fi
 
 	SVN_STATS=""
 	if [ "${SVN_STATUS_UNVERSIONED}" -gt 0 ]; then
