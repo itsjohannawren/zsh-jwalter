@@ -61,7 +61,7 @@ is_network_path() {
 	local TEST_PATH SYS_MOUNTS SYS_MOUNT LONGEST_FS LONGEST_MOUNT
 	TEST_PATH="${1}"
 
-	for SYS_MOUNT in $(mount | awk '$2=="on" {mnt=$3} $3=="on" {mnt=$4} $4=="type" {fs=$5} $5=="type" {fs=$6} $4 ~ /^\(/ {sub(/\(/, "", $4); sub(/,/, "", $4); fs=$4} $5 ~ /^\(/ {sub(/\(/, "", $5); sub(/,/, "", $5); fs=$5} (mnt!="" && fs!="") {printf("%s:%s\n", fs, mnt)}'); do
+	for SYS_MOUNT in $(mount 2>/dev/null | awk '$2=="on" {mnt=$3} $3=="on" {mnt=$4} $4=="type" {fs=$5} $5=="type" {fs=$6} $4 ~ /^\(/ {sub(/\(/, "", $4); sub(/,/, "", $4); fs=$4} $5 ~ /^\(/ {sub(/\(/, "", $5); sub(/,/, "", $5); fs=$5} (mnt!="" && fs!="") {printf("%s:%s\n", fs, mnt)}'); do
 		eval set -- "${SYS_MOUNT/:/ }"
 		if [ "${1}" != "autofs" ]; then
 			if grep -qE "^${2}" <<<"${TEST_PATH}"; then
@@ -186,7 +186,7 @@ prompt_git() {
 				fi
 			fi
 
-			if [ -n "$(parse_git_dirty 2>&1)" ]; then
+			if [ -n "$(git status -s 2>/dev/null | tail -n 1)" ]; then
 				segment yellow black
 			else
 				segment green black
