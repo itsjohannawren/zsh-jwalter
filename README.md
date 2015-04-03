@@ -4,7 +4,7 @@ My own personal ZSH theme with Git, SVN, and network awareness
 
 Requirements
 ------------
-* ZSH >= 1.3
+* ZSH >= 4.3
 * Access to the `mount` command
 * Terminal font patched with Powerline
 
