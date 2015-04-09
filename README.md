@@ -2,6 +2,8 @@ zsh-jwalter
 ===========
 My own personal ZSH theme with Git, SVN, and network awareness
 
+![Screenshot](https://github.com/jeffwalter/zsh-jwalter/raw/master/screenshot.png)
+
 Requirements
 ------------
 * ZSH >= 4.3
