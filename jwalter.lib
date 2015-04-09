@@ -1,41 +1,60 @@
 # jwalter's Theme - https://github.com/jeffwalter/zsh-jwalter
 # Based heavily on agnoster's Theme - https://gist.github.com/3712874
 
-SYS_NET_FS="nfs afs smb smbfs cifs"
-SYS_SHELL_DAEMONS="
-	sshd:SSH
-	in.sshd:SSH
-	mosh-server:Mosh
-	telnetd:Telnet
-	in.telnetd:Telnet
-	agetty:Local
-	getty:Local
-	Terminal:Local
-	iTerm:Local
-	xterm:Local
-	Konsole:Local
-"
+if [ -z "${JWALTER_NET_FS}" ]; then
+	JWALTER_NET_FS="nfs afs smb smbfs cifs"
+fi
+if [ -z "${JWALTER_SHELL_DAEMONS}" ]; then
+	JWALTER_SHELL_DAEMONS="sshd:SSH in.sshd:SSH mosh-server:Mosh telnetd:Telnet in.telnetd:Telnet agetty:Local getty:Local Terminal:Local iTerm:Local xterm:Local Konsole:Local"
+fi
+if ! grep -Eq '^(full|aliased)$' <<<"${JWALTER_PATH_STYLE}"; then
+	JWALTER_PATH_STYLE="full" # "full" or "aliased"
+fi
+if ! grep -Eq '^[0-9]+$' <<<"${JWALTER_PATH_TRUNCATE}"; then
+	JWALTER_PATH_TRUNCATE="0"
+fi
+if ! grep -Eq '^(icon|emote)$' <<<"${JWALTER_EXIT_STYLE}"; then
+	JWALTER_EXIT_STYLE="emote" # "icon" or "emote"
+fi
+if ! grep -Eq '^(icon|count|countalways)$' <<<"${JWALTER_JOB_STYLE}"; then
+	JWALTER_JOB_STYLE="count" # "icon", "count", or "countalways"
+fi
+if [ -z "${JWALTER_PROMPT_SECTIONS}" ]; then
+	JWALTER_PROMPT_SECTIONS="rootstatus userhost jobstatus exitstatus exectime path git svn"
+fi
+if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_GIT_NET}"; then
+	JWALTER_GIT_NET="yes"
+fi
+if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_SVN_NET}"; then
+	JWALTER_SVN_NET="yes"
+fi
 
-SEGMENT_BACKGROUND=""
-SEGMENT_SEPARATOR=""
+# =============================================================================
+
+__JWALTER_SEG_BG=""
+__JWALTER_SEG_SEPARATOR=""
+__JWALTER_EXEC_START=""
+__JWALTER_EXEC_TIME=""
+__JWALTER_EXIT_STATUS=""
+__JWALTER_EXIT_COMMAND=""
 
 segment() {
 	local BACKGROUND FOREGROUND
 	if [ -n "${1}" ]; then
-		BACKGROUND="%K{$1}"
+		BACKGROUND="%K{${1}}"
 	else
 		BACKGROUND="%k"
 	fi
 
 	if [ -n "${2}" ]; then
-		FOREGROUND="%F{$2}"
+		FOREGROUND="%F{${2}}"
 	else
 		FOREGROUND="%f"
 	fi
 
-	if [ -n "${SEGMENT_BACKGROUND}" ] && [ "${1}" != "${SEGMENT_BACKGROUND}" ]; then
-		echo -n " %{${BACKGROUND}%F{$SEGMENT_BACKGROUND}%}${SEGMENT_SEPARATOR}%{${FOREGROUND}%} "
-	elif [ -z "${SEGMENT_BACKGROUND}" ]; then
+	if [ -n "${__JWALTER_SEG_BG}" ] && [ "${1}" != "${__JWALTER_SEG_BG}" ]; then
+		echo -n " %{${BACKGROUND}%F{${__JWALTER_SEG_BG}}%}${__JWALTER_SEG_SEPARATOR}%{${FOREGROUND}%} "
+	elif [ -z "${__JWALTER_SEG_BG}" ]; then
 		echo -n "%{${BACKGROUND}%}%{${FOREGROUND}%}"
 	else
 		echo -n "%{${BACKGROUND}%}%{${FOREGROUND}%} "
@@ -45,19 +64,21 @@ segment() {
 		echo -n "${3}"
 	fi
 
-	SEGMENT_BACKGROUND="${1}"
+	__JWALTER_SEG_BG="${1}"
 }
 
 # End the prompt, closing any open segments
 segments_end() {
-	if [ -n "${SEGMENT_BACKGROUND}" ]; then
-		echo -n " %{%k%F{$SEGMENT_BACKGROUND}%}${SEGMENT_SEPARATOR}"
+	if [ -n "${__JWALTER_SEG_BG}" ]; then
+		echo -n " %{%k%F{${__JWALTER_SEG_BG}}%}${__JWALTER_SEG_SEPARATOR}"
 	else
 		echo -n "%{%k%}"
 	fi
 	echo -n "%{%f%}"
-	SEGMENT_BACKGROUND=""
+	__JWALTER_SEG_BG=""
 }
+
+# =============================================================================
 
 is_network_path() {
 	local TEST_PATH SYS_MOUNTS SYS_MOUNT LONGEST_FS LONGEST_MOUNT
@@ -75,12 +96,111 @@ is_network_path() {
 		fi
 	done
 
-	if grep -o "\\b${LONGEST_FS}\\b" <<<"${SYS_NET_FS}"; then
+	if grep -o "\\b${LONGEST_FS}\\b" <<<"${JWALTER_NET_FS}"; then
 		return 0
 	else
 		return 1
 	fi
 }
+
+# =============================================================================
+
+prompt_exitstatus() {
+	if [ "${__JWALTER_EXIT_STATUS}" = "__NONE__" ]; then
+		if [ "${JWALTER_EXIT_STYLE}" = "icon" ]; then
+			segment black default "⛵"
+		elif  [ "${JWALTER_EXIT_STYLE}" = "emote" ]; then
+			segment white black "-_-"
+		fi
+	elif [ "${__JWALTER_EXIT_STATUS}" != "0" ]; then
+		if [ "${JWALTER_EXIT_STYLE}" = "icon" ]; then
+			segment black default "⛔"
+		elif  [ "${JWALTER_EXIT_STYLE}" = "emote" ]; then
+			segment red black "X_x"
+		fi
+	else
+		if [ "${JWALTER_EXIT_STYLE}" = "icon" ]; then
+			segment black default "✅"
+		elif  [ "${JWALTER_EXIT_STYLE}" = "emote" ]; then
+			segment green black "^_^"
+		fi
+	fi
+}
+
+# =============================================================================
+
+prompt_rootstatus() {
+	if [ "${UID}" -eq 0 ]; then
+		segment black yellow "⚡"
+	fi
+}
+
+# =============================================================================
+
+prompt_jobstatus() {
+	local JOB_COUNT
+	JOB_COUNT="$(jobs -l | awk '/^\[[0-9]+\]/ {n++;} END{printf("%i",n);}')"
+
+	if [ "${JOB_COUNT}" != "0" ]; then
+		if [ "${JWALTER_JOB_STYLE}" = "count" ] || [ "${JWALTER_JOB_STYLE}" = "countalways" ]; then
+			if [ "${JOB_COUNT}" = "1" ]; then
+				segment yellow black "${JOB_COUNT} job"
+			else
+				segment yellow black "${JOB_COUNT} jobs"
+			fi
+		else
+			segment black default "✨"
+		fi
+	elif [ "${JWALTER_JOB_STYLE}" = "countalways" ]; then
+		segment yellow black "${JOB_COUNT} jobs"
+	fi
+}
+
+# =============================================================================
+
+preexec() {
+	__JWALTER_EXEC_TIME=""
+	__JWALTER_EXEC_START="$(date +"%s")"
+	__JWALTER_EXIT_COMMAND="${1}"
+}
+precmd() {
+	if [ -n "${__JWALTER_EXEC_START}" ]; then
+		__JWALTER_EXEC_TIME="$(($(date +"%s") - __JWALTER_EXEC_START))"
+		__JWALTER_EXEC_START=""
+	else
+		__JWALTER_EXEC_TIME="0"
+	fi
+	if [ -n "${__JWALTER_EXIT_COMMAND}" ]; then
+		__JWALTER_EXIT_COMMAND=""
+		__JWALTER_EXIT_STATUS=""
+	else
+		__JWALTER_EXIT_STATUS="__NONE__"
+	fi
+}
+fuzzy_time() {
+	local SECONDS OUTPUT
+
+	SECONDS="${1}"
+	OUTPUT=""
+
+	if [ "${SECONDS}" -ge 3600 ]; then
+		OUTPUT="${OUTPUT}$((SECONDS / 3600))h"
+		SECONDS="$((SECONDS - ((SECONDS / 3600) * 3600)))"
+	fi
+	if [ "${SECONDS}" -ge 60 ]; then
+		OUTPUT="${OUTPUT}$((SECONDS / 60))m"
+		SECONDS="$((SECONDS - ((SECONDS / 60) * 60)))"
+	fi
+	if [ "${SECONDS}" -gt 0 ] || ([ "${SECONDS}" -eq 0 ] && [ -z "${OUTPUT}" ]); then
+		OUTPUT="${OUTPUT}${SECONDS}s"
+	fi
+	echo -n "${OUTPUT}"
+}
+prompt_exectime() {
+	segment cyan black "$(fuzzy_time "${__JWALTER_EXEC_TIME}")"
+}
+
+# =============================================================================
 
 shell_daemon() {
 	local PARENT_ID PARENT_CMD IS_SCREEN
@@ -90,36 +210,17 @@ shell_daemon() {
 		PARENT_CMD="$(basename $(ps -p "${PARENT_ID}" -o command= | sed -e 's/^-*//' -e 's/ .*//' -e 's/:$//'))"
 		if [ "${PARENT_CMD}" = "SCREEN" ]; then
 			IS_SCREEN="1"
-		elif grep -q "\\b${PARENT_CMD}:" <<<"${SYS_SHELL_DAEMONS}"; then
+		elif grep -q "\\b${PARENT_CMD}:" <<<"${JWALTER_SHELL_DAEMONS}"; then
 			if [ -z "${IS_SCREEN}" ]; then
-				grep -o "\\b${PARENT_CMD}:\\S*" <<<"${SYS_SHELL_DAEMONS}"
+				grep -o "\\b${PARENT_CMD}:\\S*" <<<"${JWALTER_SHELL_DAEMONS}"
 			else
-				grep -o "\\b${PARENT_CMD}:\\S*" <<<"${SYS_SHELL_DAEMONS}" | sed -e 's/$/+Screen/'
+				grep -o "\\b${PARENT_CMD}:\\S*" <<<"${JWALTER_SHELL_DAEMONS}" | sed -e 's/$/+Screen/'
 			fi
 			return
 		fi
 		PARENT_ID="$(ps -p "${PARENT_ID}" -o ppid= | sed -e 's/ *//g')"
 	done
 }
-
-prompt_status() {
-	local SYMBOLS
-	SYMBOLS=""
-
-	if [ "${RETVAL}" -ne 0 ]; then
-		SYMBOLS="${SYMBOLS}%{%F{red}%}✘"
-	fi
-	if [ "${UID}" -eq 0 ]; then
-		SYMBOLS="${SYMBOLS}%{%F{yellow}%}⚡"
-	fi
-	if [ "$(jobs -l | wc -l)" -gt 0 ]; then
-		SYMBOLS="${SYMBOLS}%{%F{cyan}%}⚙"
-	fi
-	if [ -n "${SYMBOLS}" ]; then
-		segment black default "${SYMBOLS}"
-	fi
-}
-
 prompt_userhost() {
 	local USER SHELL_DAEMON
 	USER="$(whoami)"
@@ -134,24 +235,48 @@ prompt_userhost() {
 	fi
 }
 
-prompt_dir() {
-	MESSAGES=""
+# =============================================================================
+
+prompt_path() {
+	BUFFER=""
 	NET_FS="$(is_network_path "$(pwd -P)")"
 	if [ "$?" = "0" ]; then
-		MESSAGES="${MESSAGES}, ${NET_FS}"
+		BUFFER="${BUFFER}, ${NET_FS}"
 	fi
-	MESSAGES="$(sed -e 's/^, //' <<<"${MESSAGES}")"
+	BUFFER="$(sed -e 's/^, //' <<<"${BUFFER}")"
 
-	if [ -n "${MESSAGES}" ]; then
-		segment blue black "(${MESSAGES}) %~"
-	else
-		segment blue black "%~"
+	if [ -n "${BUFFER}" ]; then
+		BUFFER="(${BUFFER}) "
 	fi
+
+	if [ "${JWALTER_PATH_TRUNCATE}" = "0" ]; then
+		if [ "${JWALTER_PATH_STYLE}" = "aliased" ]; then
+			BUFFER="${BUFFER}%~"
+		elif [ "${JWALTER_PATH_STYLE}" = "full" ]; then
+			BUFFER="${BUFFER}%/"
+		fi
+	else
+		if [ "${JWALTER_PATH_STYLE}" = "aliased" ]; then
+			BUFFER="${BUFFER}%$((JWALTER_PATH_TRUNCATE+1))(c:...:)%${JWALTER_PATH_TRUNCATE}c"
+		elif [ "${JWALTER_PATH_STYLE}" = "full" ]; then
+			BUFFER="${BUFFER}%$((JWALTER_PATH_TRUNCATE+1))(.:...:)%${JWALTER_PATH_TRUNCATE}."
+		fi
+	fi
+
+	segment blue black "${BUFFER}"
 }
+
+# =============================================================================
 
 prompt_git() {
 	local GIT_PATH GIT_UNTRACKED GIT_MODIFIED GIT_REMOVED GIT_STAGED GIT_AHEAD GIT_BEHIND GIT_BRANCH GIT_COMMIT GIT_TAG GIT_STATS
 	local GIT_PATH_REAL SYS_MOUNTS SYS_MOUNT LONGEST_MOUNT LONGEST_FS
+
+	if [ "${JWALTER_GIT_NET}" != "yes" ]; then
+		if is_network_path "$(pwd -P)" &>/dev/null; then
+			return 0
+		fi
+	fi
 
 	if ! which git &>/dev/null; then
 		return 0
@@ -251,9 +376,17 @@ prompt_git() {
 	fi
 }
 
+# =============================================================================
+
 prompt_svn() {
 	local SVN_STATUS_ADDED SVN_STATUS_CONFLICTED SVN_STATUS_DELETED SVN_STATUS_MODIFIED SVN_STATUS_REPLACED SVN_STATUS_UNVERSIONED SVN_STATUS_MISSING SVN_STATUS_OBSTRUCTED SVN_STATUS_LOCKED
 	local SVN_PATH SVN_REPO_URL SVN_REPO_ROOT SVN_REPO_UUID SVN_REV SVN_NODE SVN_LAST_REV SVN_LAST_DATE
+
+	if [ "${JWALTER_SVN_NET}" != "yes" ]; then
+		if is_network_path "$(pwd -P)" &>/dev/null; then
+			return 0
+		fi
+	fi
 
 	if ! which svn &>/dev/null; then
 		return 0
@@ -333,11 +466,47 @@ prompt_svn() {
 	fi
 }
 
-## Main prompt
-build_prompt() {
-	RETVAL="$?"
+# =============================================================================
 
-	echo -n "$(prompt_status; prompt_userhost; prompt_dir; prompt_git; prompt_svn; segments_end)"
+build_prompt() {
+	__JWALTER_EXIT_STATUS_TEMP="$?"
+	if [ -z "${__JWALTER_EXIT_STATUS}" ]; then
+		__JWALTER_EXIT_STATUS="${__JWALTER_EXIT_STATUS_TEMP}"
+	fi
+
+	local SECTION BUFFER BFS
+
+	for SECTION in $(sed -e 's/ +/\n/' <<<"${JWALTER_PROMPT_SECTIONS}"); do
+		case "${SECTION}" in
+			userhost)
+				BUFFER="${BUFFER}prompt_userhost;"
+				;;
+			exitstatus)
+				BUFFER="${BUFFER}prompt_exitstatus;"
+				;;
+			rootstatus)
+				BUFFER="${BUFFER}prompt_rootstatus;"
+				;;
+			jobstatus)
+				BUFFER="${BUFFER}prompt_jobstatus;"
+				;;
+			exectime)
+				BUFFER="${BUFFER}prompt_exectime;"
+				;;
+			path)
+				BUFFER="${BUFFER}prompt_path;"
+				;;
+			git)
+				BUFFER="${BUFFER}prompt_git;"
+				;;
+			svn)
+				BUFFER="${BUFFER}prompt_svn;"
+				;;
+		esac
+	done
+
+	echo -n "$(eval ${BUFFER}segments_end)"
 }
 
-PROMPT='%{%f%b%k%}$(build_prompt) '
+# %{%f%b%k%}
+PROMPT='$(build_prompt) '
