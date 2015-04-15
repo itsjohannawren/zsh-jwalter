@@ -184,15 +184,15 @@ fuzzy_time() {
 	OUTPUT=""
 
 	if [ "${SECONDS}" -ge 3600 ]; then
-		OUTPUT="${OUTPUT}$((SECONDS / 3600))h"
+		OUTPUT="${OUTPUT}$((SECONDS / 3600))ᴴ"
 		SECONDS="$((SECONDS - ((SECONDS / 3600) * 3600)))"
 	fi
 	if [ "${SECONDS}" -ge 60 ]; then
-		OUTPUT="${OUTPUT}$((SECONDS / 60))m"
+		OUTPUT="${OUTPUT}$((SECONDS / 60))ᴹ"
 		SECONDS="$((SECONDS - ((SECONDS / 60) * 60)))"
 	fi
 	if [ "${SECONDS}" -gt 0 ] || ([ "${SECONDS}" -eq 0 ] && [ -z "${OUTPUT}" ]); then
-		OUTPUT="${OUTPUT}${SECONDS}s"
+		OUTPUT="${OUTPUT}${SECONDS}ᙚ"
 	fi
 	echo -n "${OUTPUT}"
 }
