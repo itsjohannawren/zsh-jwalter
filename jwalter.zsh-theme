@@ -20,16 +20,16 @@ elif [ "$(($(<"${ZSH_CUSTOM}/themes/zsh-jwalter/.lastupdate") + UPDATE_INTERVAL)
 	done
 	if [ "${UPDATE_RESPONSE}" = "y" ]; then
 		pushd "${ZSH_CUSTOM}/themes/zsh-jwalter" &>/dev/null
-		git fetch --all
+		git pull
 		if [ "$?" != "0" ]; then
 			echo "Error: Update failed!"
 		else
-			git checkout tags/stable
-			if [ "$?" != "0" ]; then
-				echo "Error: Update failed!"
-			else
+		#	git checkout tags/stable
+		#	if [ "$?" != "0" ]; then
+		#		echo "Error: Update failed!"
+		#	else
 				date +"%s" > "${ZSH_CUSTOM}/themes/zsh-jwalter/.lastupdate"
-			fi
+		#	fi
 		fi
 		popd &>/dev/null
 	else
