@@ -341,6 +341,7 @@ prompt_git() {
 					GIT_TAG="ᑕ${GIT_TAG}"
 				fi
 			fi
+			GIT_TAG="$(awk '/^[^\t ]/ {buffer=buffer $1 ","} END{sub(/,$/,"",buffer);printf("%s",buffer);}' <<<"${GIT_TAG}")"
 
 			if [ -n "$(git status -s 2>/dev/null | tail -n 1)" ]; then
 				segment yellow black
