@@ -7,6 +7,12 @@ fi
 if [ -z "${JWALTER_SHELL_DAEMONS}" ]; then
 	JWALTER_SHELL_DAEMONS="sshd:SSH in.sshd:SSH mosh-server:Mosh telnetd:Telnet in.telnetd:Telnet agetty:Local getty:Local Terminal:Local iTerm:Local xterm:Local Konsole:Local"
 fi
+if ! grep -Eq '^[1-9][0-9]*$' <<< "${JWALTER_HOSTNAME_PARTS}"; then
+	JWALTER_HOSTNAME_PARTS="1"
+fi
+if [ -z "${JWALTER_HOSTNAME_DIVISORS}" ] || ! grep -Eiq '^[a-z0-9_-, ]+$' <<<"${JWALTER_HOSTNAME_DIVISORS}"; then
+	JWALTER_HOSTNAME_DIVISORS=""
+fi
 if ! grep -Eq '^(full|aliased)$' <<<"${JWALTER_PATH_STYLE}"; then
 	JWALTER_PATH_STYLE="full" # "full" or "aliased"
 fi
@@ -221,16 +227,39 @@ shell_daemon() {
 		PARENT_ID="$(ps -p "${PARENT_ID}" -o ppid= | sed -e 's/ *//g')"
 	done
 }
+sys_hostname() {
+	local HOSTNAME_SYS
+
+	HOSTNAME_SYS="$(hostname -f 2>/dev/null || (echo "$(hostname 2>/dev/null) $(domainname 2>/dev/null) $(dnsdomainname 2>/dev/null)"))"
+	HOSTNAME_SYS="$(sed -e 's/(none)//' -e 's/ *$//g' -e 's/  */./g' <<<"${HOSTNAME_SYS}")"
+
+	if [ -n "${JWALTER_HOSTNAME_DIVISORS}" ]; then
+		if grep -Eq "\.($(sed -e 's/\([^a-zA-Z0-9_]\)/\\\1/g' -e 's/  */|/' <<<"${JWALTER_HOSTNAME_DIVISORS}")$\." <<<"${HOSTNAME_SYS}"; then
+			echo -n "$(grep -E "^.*\.($(sed -e 's/\([^a-zA-Z0-9_]\)/\\\1/g' -e 's/  */|/' <<<"${JWALTER_HOSTNAME_DIVISORS}")$\." <<<"${HOSTNAME_SYS}")"
+			return
+		fi
+	fi
+
+	if [ -n "${JWALTER_HOSTNAME_PARTS}" ] && [ "${JWALTER_HOSTNAME_PARTS}" != "0" ]; then
+		if [ "$(sed -e 's/\./ /g' <<<"${HOSTNAME_SYS}" | wc -w | awk '{print $1}')" -gt "${JWALTER_HOSTNAME_PARTS}" ]; then
+			echo -n "$(cut -d . "-f1-${JWALTER_HOSTNAME_PARTS}" <<<"${HOSTNAME_SYS}")"
+			return
+		fi
+	fi
+
+	echo -n "${HOSTNAME_SYS}"
+}
 prompt_userhost() {
-	local USER SHELL_DAEMON
+	local USER HOST SHELL_DAEMON
 	USER="$(whoami)"
+	HOST="$(sys_hostname)"
 
 	if [ "${USER}" != "${DEFAULT_USER}" ] || [ -n "${SSH_CLIENT}" ]; then
 		SHELL_DAEMON="$(shell_daemon $$)"
 		if [ -n "${SHELL_DAEMON}" ]; then
-			segment black default "%(!.%{%F{yellow}%}.)${USER}@%m (${SHELL_DAEMON/*:/})"
+			segment black default "%(!.%{%F{yellow}%}.)${USER}@${HOST} (${SHELL_DAEMON/*:/})"
 		else
-			segment black default "%(!.%{%F{yellow}%}.)${USER}@%m"
+			segment black default "%(!.%{%F{yellow}%}.)${USER}@${HOST}"
 		fi
 	fi
 }
