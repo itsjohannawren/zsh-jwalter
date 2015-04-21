@@ -54,6 +54,19 @@ affect which information is shown and how the theme presents it.
     * Values: Integer greater than or equal to `0`
     * Default: `0`
 
+* **JWALTER_HOSTNAME_DIVISORS**: A list of elements that will cause the local
+    machine's hostname to be divided into a part that will be displayed and a
+    part that will not.
+    * Values: Space-separated list of hostname elements
+    * Default: *empty*
+
+* **JWALTER_HOSTNAME_PARTS**: The number of leading elements from the local
+    machine's hostname to display. If an element in the hostname matches one
+    from `JWALTER_HOSTNAME_DIVISORS` this value is ignored. A value of `0` here
+    indicates that the whole hostname should be displayed.
+    * Values: Integer greater than or equal to `0`
+    * Default: `0`
+
 * **JWALTER_EXIT_STYLE**: Controls how the exit status of the previous command
     is displayed
     * Values: `icon`, `emote`
