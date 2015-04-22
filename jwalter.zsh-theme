@@ -7,7 +7,7 @@ if [ "${JWALTER_UPDATE_INTERVAL}" != "0" ]; then
 	if [ ! -f "${ZSH_CUSTOM}/themes/zsh-jwalter/.lastupdate" ] || ! grep -Eq '^[0-9]+$' "${ZSH_CUSTOM}/themes/zsh-jwalter/.lastupdate"; then
 		date +"%s" > "${ZSH_CUSTOM}/themes/zsh-jwalter/.lastupdate"
 
-	elif [ "$(($(<"${ZSH_CUSTOM}/themes/zsh-jwalter/.lastupdate") + UPDATE_INTERVAL))" -lt "$(date +"%s")" ]; then
+	elif [ "$(($(<"${ZSH_CUSTOM}/themes/zsh-jwalter/.lastupdate") + JWALTER_UPDATE_INTERVAL))" -lt "$(date +"%s")" ]; then
 		UPDATE_RESPONSE=""
 		while [ -z "${UPDATE_RESPONSE}" ]; do
 			echo -n "Would you like to update zsh-jwalter? [y|N] "
