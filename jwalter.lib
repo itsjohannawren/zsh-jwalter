@@ -318,6 +318,7 @@ prompt_git() {
 		# Are we on a network mount?
 		if is_network_path "$(cd "${GIT_PATH}" &>/dev/null && pwd -P)" &>/dev/null; then
 			segment cyan black
+			GIT_UNMERGED="0"
 			GIT_UNTRACKED="0"
 			GIT_MODIFIED="0"
 			GIT_REMOVED="0"
@@ -327,7 +328,7 @@ prompt_git() {
 			GIT_TAG=""
 
 		else
-			eval "$(git status -s 2>&1 | awk '/^\?\?/ {untracked++;} /^[^ ?]/ {staged++;} /^.M/ {modified++} /^ D/ {removed++;} END {printf ("GIT_UNTRACKED=%u\nGIT_MODIFIED=%u\nGIT_REMOVED=%u\nGIT_STAGED=%u\n", untracked, modified, removed, staged);}')"
+			eval "$(git status -s --ignored 2>&1 | awk '/^\?\?/ {untracked++;} /^!!/ {ignored++;} /^UU/ {unmerged++;} /^[^ ?]/ {staged++;} /^.M/ {modified++} /^ D/ {removed++;} END {printf ("GIT_UNMERGED=%u\nGIT_IGNORED=%u\nGIT_UNTRACKED=%u\nGIT_MODIFIED=%u\nGIT_REMOVED=%u\nGIT_STAGED=%u\n", unmerged, ignored, untracked, modified, removed, staged);}')"
 			eval "$(git status -b 2>&1 | awk '/branch is ahead/ {ahead=$(NF-1);} /branch is behind/ {behind=$7;} /different commits? each/ {ahead=$3; behind=$5;} /On branch/ {branch=$NF;} /HEAD detached at/ {branch=$NF "(DETACHED)"} END {printf ("GIT_AHEAD=%u\nGIT_BEHIND=%u\nGIT_BRANCH=\"%s\"\n", ahead, behind, branch);}')"
 			GIT_REV="$(git rev-parse HEAD 2>/dev/null | head -n 1)"
 			if [ "${GIT_REV}" != "HEAD" ]; then
@@ -371,6 +372,12 @@ prompt_git() {
 		GIT_STATS=""
 		if [ "${GIT_UNTRACKED}" -gt 0 ]; then
 			GIT_STATS="${GIT_STATS}…${GIT_UNTRACKED}"
+		fi
+		if [ "${GIT_IGNORED}" -gt 0 ]; then
+			GIT_STATS="${GIT_STATS}i${GIT_IGNORED}"
+		fi
+		if [ "${GIT_UNMERGED}" -gt 0 ]; then
+			GIT_STATS="${GIT_STATS}u${GIT_UNMERGED}"
 		fi
 		if [ "${GIT_MODIFIED}" -gt 0 ]; then
 			GIT_STATS="${GIT_STATS}±${GIT_MODIFIED}"
