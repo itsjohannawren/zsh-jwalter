@@ -319,6 +319,7 @@ prompt_git() {
 		if is_network_path "$(cd "${GIT_PATH}" &>/dev/null && pwd -P)" &>/dev/null; then
 			segment cyan black
 			GIT_UNMERGED="0"
+			GIT_IGNORED="0"
 			GIT_UNTRACKED="0"
 			GIT_MODIFIED="0"
 			GIT_REMOVED="0"
