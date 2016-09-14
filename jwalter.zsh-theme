@@ -24,16 +24,11 @@ if [ "${JWALTER_UPDATE_INTERVAL}" != "0" ]; then
 		done
 		if [ "${UPDATE_RESPONSE}" = "y" ]; then
 			pushd "${ZSH_CUSTOM}/themes/zsh-jwalter" &>/dev/null
-			git fetch --tags --all
+			git pull
 			if [ "$?" != "0" ]; then
 				echo "Error: Update failed!"
 			else
-				git checkout tags/stable
-				if [ "$?" != "0" ]; then
-					echo "Error: Update failed!"
-				else
-					date +"%s" > "${ZSH_CUSTOM}/themes/zsh-jwalter/.lastupdate"
-				fi
+				date +"%s" > "${ZSH_CUSTOM}/themes/zsh-jwalter/.lastupdate"
 			fi
 			popd &>/dev/null
 		else
