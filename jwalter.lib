@@ -66,7 +66,7 @@ segment() {
 
 	if [ -n "${__JWALTER_SEG_BG}" ] && [ "${1}" != "${__JWALTER_SEG_BG}" ]; then
 		echo -n " %{${BACKGROUND}%F{${__JWALTER_SEG_BG}}%}${__JWALTER_SEG_SEPARATOR}%{${FOREGROUND}%} "
-	elif [ -z "${__JWALTER_SEG_BG}" ]; then
+	elif [ -z "${__JWALTER_SEG_BG}" ] && ([ "${BACKGROUND}" = "%K{default}" ] || [ "${BACKGROUND}" = "%K{black}" ]); then
 		echo -n "%{${BACKGROUND}%}%{${FOREGROUND}%}"
 	else
 		echo -n "%{${BACKGROUND}%}%{${FOREGROUND}%} "
