@@ -14,6 +14,8 @@ Optional Requirements
 ---------------------
 * Git
 * SVN
+* rvm
+* nvm
 
 Installation
 ------------
@@ -39,6 +41,24 @@ affect which information is shown and how the theme presents it.
     value of `0` disables updates.
     * Values: Days, integer greater than or equal to `0`
     * Default: `7`
+
+* **JWALTER_PROMPT_SECTIONS**: Space-separated list of which prompt sections to
+    are shown and which order to show them in.
+    * Values:
+        * `userhost`: Username and hostname for the session
+        * `exitstatus`: Exit status of the last run command
+        * `rootstatus`: Root indicator
+        * `jobstatus`: Number of jobs currently running the session's
+                       background
+        * `exectime`: The elapsed real-time the last command took to run
+        * `path`: Current working directory
+        * `git`: Git repository information
+        * `svn`: SVN repository information
+        * `nvm`: Current NodeJS version via nvm
+        * `rvm`: Current Ruby version via rvm
+        * `break`: A line break
+    * Default: `rootstatus userhost jobstatus exitstatus nvm rvm exectime path
+               git svn`
 
 * **JWALTER_NET_FS**: List of filesystem types that are known to be
     network-based.
@@ -81,11 +101,6 @@ affect which information is shown and how the theme presents it.
 * **JWALTER_JOB_STYLE**: Controls how the number of backgrounded jobs is shown.
     * Values: `icon`, `count`, `countalways`
     * Default: `count`
-
-* **JWALTER_PROMPT_SECTIONS**: Space-separated list of which prompt sections to
-    are shown and which order to show them in.
-    * Values: `userhost`, `exitstatus`, `rootstatus`, `jobstatus`, `exectime`, `path`, `git`, `svn`
-    * Default: `rootstatus userhost jobstatus exitstatus exectime path git svn`
 
 * **JWALTER_GIT_NET**: Whether or not even try Git commands on network
     filesystems.

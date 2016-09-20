@@ -26,13 +26,19 @@ if ! grep -Eq '^(icon|count|countalways)$' <<<"${JWALTER_JOB_STYLE}"; then
 	JWALTER_JOB_STYLE="count" # "icon", "count", or "countalways"
 fi
 if [ -z "${JWALTER_PROMPT_SECTIONS}" ]; then
-	JWALTER_PROMPT_SECTIONS="rootstatus userhost jobstatus exitstatus exectime path git svn"
+	JWALTER_PROMPT_SECTIONS="rootstatus userhost jobstatus exitstatus nvm rvm exectime path git svn"
 fi
 if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_GIT_NET}"; then
 	JWALTER_GIT_NET="yes"
 fi
 if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_SVN_NET}"; then
 	JWALTER_SVN_NET="yes"
+fi
+if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_NVM}"; then
+	JWALTER_NVM="yes"
+fi
+if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_RVM}"; then
+	JWALTER_RVM="yes"
 fi
 
 # =============================================================================
@@ -507,6 +513,68 @@ prompt_svn() {
 
 # =============================================================================
 
+prompt_nvm() {
+	local NODE_VERSION NODE_NAME
+
+	if ! nvm help &>/dev/null; then
+		return 0
+	fi
+
+	NODE_VERSION="$(nvm version)"
+	case "${NODE_VERSION}" in
+		system)
+			return 0
+			;;
+		none)
+			return 0
+			;;
+		v*)
+			NODE_NAME="Node "
+			NODE_VERSION="${NODE_VERSION/v/}"
+			;;
+		iojs-v*)
+			NODE_NAME="ioJS "
+			NODE_VERSION="${NODE_VERSION/iojs-v/}"
+			;;
+	esac
+
+	segment magenta black
+	echo -n "${NODE_NAME}${NODE_VERSION}"
+}
+
+# =============================================================================
+
+prompt_rvm() {
+	local RUBY_VERSION RUBY_NAME
+
+	if ! rvm help &>/dev/null; then
+		return 0
+	fi
+
+	RUBY_VERSION="$(rvm current 2>/dev/null)"
+	case "${RUBY_VERSION}" in
+		system)
+			return 0
+			;;
+		ruby-*)
+			RUBY_NAME="Ruby "
+			RUBY_VERSION="${RUBY_VERSION/ruby-/}"
+			;;
+	esac
+
+	segment magenta white
+	echo -n "${RUBY_NAME}${RUBY_VERSION}"
+}
+
+# =============================================================================
+
+prompt_break() {
+	segments_end
+	echo
+}
+
+# =============================================================================
+
 build_prompt() {
 	__JWALTER_EXIT_STATUS_TEMP="$?"
 	if [ -z "${__JWALTER_EXIT_STATUS}" ]; then
@@ -517,6 +585,9 @@ build_prompt() {
 
 	for SECTION in $(sed -e 's/ +/\n/' <<<"${JWALTER_PROMPT_SECTIONS}"); do
 		case "${SECTION}" in
+			break)
+				BUFFER="${BUFFER}prompt_break;"
+				;;
 			userhost)
 				BUFFER="${BUFFER}prompt_userhost;"
 				;;
@@ -540,6 +611,12 @@ build_prompt() {
 				;;
 			svn)
 				BUFFER="${BUFFER}prompt_svn;"
+				;;
+			nvm)
+				BUFFER="${BUFFER}prompt_nvm;"
+				;;
+			rvm)
+				BUFFER="${BUFFER}prompt_rvm;"
 				;;
 		esac
 	done
