@@ -5,7 +5,7 @@ if [ -z "${JWALTER_NET_FS}" ]; then
 	JWALTER_NET_FS="nfs afs smb smbfs cifs"
 fi
 if [ -z "${JWALTER_SHELL_DAEMONS}" ]; then
-	JWALTER_SHELL_DAEMONS="sshd:SSH in.sshd:SSH mosh-server:Mosh telnetd:Telnet in.telnetd:Telnet agetty:Local getty:Local Terminal:Local iTerm:Local xterm:Local Konsole:Local"
+	JWALTER_SHELL_DAEMONS="sshd:SSH in.sshd:SSH mosh-server:Mosh telnetd:Telnet in.telnetd:Telnet agetty:Local getty:Local Terminal:Local iTerm:Local iTerm2:Local xterm:Local Konsole:Local"
 fi
 if ! grep -Eq '^[1-9][0-9]*$' <<< "${JWALTER_HOSTNAME_PARTS}"; then
 	JWALTER_HOSTNAME_PARTS="1"
