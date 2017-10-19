@@ -31,8 +31,20 @@ fi
 if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_GIT_NET}"; then
 	JWALTER_GIT_NET="yes"
 fi
+if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_GIT_NET_FULL}"; then
+	JWALTER_GIT_NET_FULL="no"
+fi
+if ! grep -Eq '^.+$' <<<"${JWALTER_GIT_NET_FULL_OVERRIDE}"; then
+	JWALTER_GIT_NET_FULL_OVERRIDE="jwalter_net_full"
+fi
 if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_SVN_NET}"; then
 	JWALTER_SVN_NET="yes"
+fi
+if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_SVN_NET_FULL}"; then
+	JWALTER_SVN_NET_FULL="no"
+fi
+if ! grep -Eq '^.+$' <<<"${JWALTER_SVN_NET_FULL_OVERRIDE}"; then
+	JWALTER_SVN_NET_FULL_OVERRIDE="jwalter_net_full"
 fi
 if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_NVM}"; then
 	JWALTER_NVM="yes"
@@ -93,7 +105,7 @@ segments_end() {
 # =============================================================================
 
 is_network_path() {
-	local TEST_PATH SYS_MOUNTS SYS_MOUNT LONGEST_FS LONGEST_MOUNT
+	local TEST_PATH SYS_MOUNT LONGEST_FS LONGEST_MOUNT
 	TEST_PATH="${1}"
 
 	for SYS_MOUNT in $(mount 2>/dev/null | awk '$2=="on" {mnt=$3} $3=="on" {mnt=$4} $4=="type" {fs=$5} $5=="type" {fs=$6} $4 ~ /^\(/ {sub(/\(/, "", $4); sub(/,/, "", $4); fs=$4} $5 ~ /^\(/ {sub(/\(/, "", $5); sub(/,/, "", $5); fs=$5} (mnt!="" && fs!="") {printf("%s:%s\n", fs, mnt)}'); do
@@ -219,7 +231,7 @@ shell_daemon() {
 	PARENT_ID="${1:-$$}"
 
 	while [ "${PARENT_ID}" != "1" ]; do
-		PARENT_CMD="$(basename $(ps -p "${PARENT_ID}" -o command= | sed -e 's/^-*//' -e 's/ .*//' -e 's/:$//'))"
+		PARENT_CMD="$(basename "$(ps -p "${PARENT_ID}" -o command= | sed -e 's/^-*//' -e 's/ .*//' -e 's/:$//')")"
 		if [ "${PARENT_CMD}" = "SCREEN" ]; then
 			IS_SCREEN="1"
 		elif grep -q "\\b${PARENT_CMD}:" <<<"${JWALTER_SHELL_DAEMONS}"; then
@@ -276,6 +288,7 @@ prompt_userhost() {
 prompt_path() {
 	BUFFER=""
 	NET_FS="$(is_network_path "$(pwd -P)")"
+	# shellcheck disable=2181
 	if [ "$?" = "0" ]; then
 		BUFFER="${BUFFER}, ${NET_FS}"
 	fi
@@ -306,7 +319,6 @@ prompt_path() {
 
 prompt_git() {
 	local GIT_PATH GIT_UNTRACKED GIT_MODIFIED GIT_REMOVED GIT_STAGED GIT_AHEAD GIT_BEHIND GIT_BRANCH GIT_COMMIT GIT_TAG GIT_STATS
-	local GIT_PATH_REAL SYS_MOUNTS SYS_MOUNT LONGEST_MOUNT LONGEST_FS
 
 	if [ "${JWALTER_GIT_NET}" != "yes" ]; then
 		if is_network_path "$(pwd -P)" &>/dev/null; then
@@ -322,7 +334,11 @@ prompt_git() {
 		GIT_PATH="$(git rev-parse --git-dir 2>/dev/null)"
 
 		# Are we on a network mount?
-		if is_network_path "$(cd "${GIT_PATH}" &>/dev/null && pwd -P)" &>/dev/null; then
+		if \
+			is_network_path "$(cd "${GIT_PATH}" &>/dev/null && pwd -P)" &>/dev/null && \
+			[ "${JWALTER_GIT_NET_FULL}" != "yes" ] && \
+			[ ! -e "${GIT_PATH}/${JWALTER_GIT_NET_FULL_OVERRIDE}" ] \
+		; then
 			segment cyan black
 			GIT_UNMERGED="0"
 			GIT_IGNORED="0"
@@ -425,6 +441,7 @@ prompt_git() {
 
 prompt_svn() {
 	local SVN_STATUS_ADDED SVN_STATUS_CONFLICTED SVN_STATUS_DELETED SVN_STATUS_MODIFIED SVN_STATUS_REPLACED SVN_STATUS_UNVERSIONED SVN_STATUS_MISSING SVN_STATUS_OBSTRUCTED SVN_STATUS_LOCKED
+	# shellcheck disable=2034
 	local SVN_PATH SVN_REPO_URL SVN_REPO_ROOT SVN_REPO_UUID SVN_REV SVN_NODE SVN_LAST_REV SVN_LAST_DATE
 
 	if [ "${JWALTER_SVN_NET}" != "yes" ]; then
@@ -442,10 +459,12 @@ prompt_svn() {
 		return 0
 	fi
 
-	if is_network_path "$(cd "${SVN_PATH}" &>/dev/null && pwd -P)" &>/dev/null; then
-		if [ "${SVN_STATUS_NET}" = "limit" ]; then
-			eval "$(svn status --depth=immediate | awk '/^A/ {added++;} /^(C|.C|.{6}C)/ {conflicted++;} /^D/ {deleted++;} /^(M|.M)/ {modified++;} /^R/ {replaced++;} /^\?/ {unversioned++;} /^!/ {missing++;} /^~/ {obstructioned++;} /^..(L|...K)/ {locked++;} END {printf("SVN_STATUS_ADDED=%u\nSVN_STATUS_CONFLICTED=%u\nSVN_STATUS_DELETED=%u\nSVN_STATUS_MODIFIED=%u\nSVN_STATUS_REPLACED=%u\nSVN_STATUS_UNVERSIONED=%u\nSVN_STATUS_MISSING=%u\nSVN_STATUS_OBSTRUCTED=%u\nSVN_STATUS_LOCKED=%u\n",added,conflicted,deleted,modified,replaced,unversioned,missing,obstructioned,locked);}')"
-		fi
+	if \
+		is_network_path "$(cd "${SVN_PATH}" &>/dev/null && pwd -P)" &>/dev/null && \
+		[ "${JWALTER_SVN_NET_FULL}" != "yes" ] && \
+		[ ! -e "${SVN_PATH}/${JWALTER_SVN_NET_FULL_OVERRIDE}" ] \
+	; then
+		eval "$(svn status --depth=immediate | awk '/^A/ {added++;} /^(C|.C|.{6}C)/ {conflicted++;} /^D/ {deleted++;} /^(M|.M)/ {modified++;} /^R/ {replaced++;} /^\?/ {unversioned++;} /^!/ {missing++;} /^~/ {obstructioned++;} /^..(L|...K)/ {locked++;} END {printf("SVN_STATUS_ADDED=%u\nSVN_STATUS_CONFLICTED=%u\nSVN_STATUS_DELETED=%u\nSVN_STATUS_MODIFIED=%u\nSVN_STATUS_REPLACED=%u\nSVN_STATUS_UNVERSIONED=%u\nSVN_STATUS_MISSING=%u\nSVN_STATUS_OBSTRUCTED=%u\nSVN_STATUS_LOCKED=%u\n",added,conflicted,deleted,modified,replaced,unversioned,missing,obstructioned,locked);}')"
 	else
 		pushd "${SVN_PATH}" &>/dev/null
 		eval "$(svn status | awk '/^A/ {added++;} /^(C|.C|.{6}C)/ {conflicted++;} /^D/ {deleted++;} /^(M|.M)/ {modified++;} /^R/ {replaced++;} /^\?/ {unversioned++;} /^!/ {missing++;} /^~/ {obstructioned++;} /^..(L|...K)/ {locked++;} END {printf("SVN_STATUS_ADDED=%u\nSVN_STATUS_CONFLICTED=%u\nSVN_STATUS_DELETED=%u\nSVN_STATUS_MODIFIED=%u\nSVN_STATUS_REPLACED=%u\nSVN_STATUS_UNVERSIONED=%u\nSVN_STATUS_MISSING=%u\nSVN_STATUS_OBSTRUCTED=%u\nSVN_STATUS_LOCKED=%u\n",added,conflicted,deleted,modified,replaced,unversioned,missing,obstructioned,locked);}')"
@@ -581,8 +600,9 @@ build_prompt() {
 		__JWALTER_EXIT_STATUS="${__JWALTER_EXIT_STATUS_TEMP}"
 	fi
 
-	local SECTION BUFFER BFS
+	local SECTION BUFFER
 
+	# shellcheck disable=2013
 	for SECTION in $(sed -e 's/ +/\n/' <<<"${JWALTER_PROMPT_SECTIONS}"); do
 		case "${SECTION}" in
 			break)
@@ -621,8 +641,9 @@ build_prompt() {
 		esac
 	done
 
+	# shellcheck disable=2086
 	echo -n "$(eval ${BUFFER}segments_end)"
 }
 
-# %{%f%b%k%}
+# shellcheck disable=2034,2016
 PROMPT='$(build_prompt) '
