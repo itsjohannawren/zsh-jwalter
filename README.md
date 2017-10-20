@@ -103,11 +103,37 @@ affect which information is shown and how the theme presents it.
     * Default: `count`
 
 * **JWALTER_GIT_NET**: Whether or not even try Git commands on network
-    filesystems.
+    filesystems. If you do have it try and you're in a Git repository only a
+    limited amount of information is returned to avoid "disk"-intensive
+    portions.
     * Values: `yes`, `no`
     * Default: `yes`
 
+* **JWALTER_GIT_NET_FULL**: Perform all Git commands to collect information even
+    while on a network filesystem.
+    * Values: `yes`, `no`
+    * Default: `no`
+
+* **JWALTER_GIT_NET_FULL_OVERRIDE**: The name of a file that when present in a
+    Git repository's storage directory (`.git`) causes `JWALTER_GIT_NET_FULL` to be
+    effectively set to `yes`, but only for that repository.
+    * Values: Name of file
+    * Default: `jwalter_net_full`
+
 * **JWALTER_SVN_NET**: Whether or not even try SVN commands on network
-    filesystems.
+    filesystems. If you do have it try and you're in a SVN repository only a
+    limited amount of information is returned to avoid "disk"-intensive
+    portions.
     * Values: `yes`, `no`
     * Default: `yes`
+
+* **JWALTER_SVN_NET_FULL**: Perform all SVN commands to collect information even
+    while on a network filesystem.
+    * Values: `yes`, `no`
+    * Default: `no`
+
+* **JWALTER_SVN_NET_FULL_OVERRIDE**: The name of a file that when present in a
+    SVN repository's storage directory (`.svn`) causes `JWALTER_SVN_NET_FULL` to be
+    effectively set to `yes`, but only for that repository.
+    * Values: Name of file
+    * Default: `jwalter_net_full`
