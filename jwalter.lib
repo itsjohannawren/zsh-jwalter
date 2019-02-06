@@ -46,6 +46,15 @@ fi
 if ! grep -Eq '^.+$' <<<"${JWALTER_SVN_NET_FULL_OVERRIDE}"; then
 	JWALTER_SVN_NET_FULL_OVERRIDE="jwalter_net_full"
 fi
+if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_CVS_NET}"; then
+	JWALTER_CVS_NET="yes"
+fi
+if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_CVS_NET_FULL}"; then
+	JWALTER_CVS_NET_FULL="no"
+fi
+if ! grep -Eq '^.+$' <<<"${JWALTER_CVS_NET_FULL_OVERRIDE}"; then
+	JWALTER_CVS_NET_FULL_OVERRIDE="jwalter_net_full"
+fi
 if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_NVM}"; then
 	JWALTER_NVM="yes"
 fi
@@ -61,6 +70,12 @@ __JWALTER_EXEC_START=""
 __JWALTER_EXEC_TIME=""
 __JWALTER_EXIT_STATUS=""
 __JWALTER_EXIT_COMMAND=""
+
+# =============================================================================
+
+CVSROOT=""
+
+# =============================================================================
 
 segment() {
 	local BACKGROUND FOREGROUND
@@ -195,6 +210,9 @@ precmd() {
 		__JWALTER_EXEC_TIME="0"
 	fi
 	if [ -n "${__JWALTER_EXIT_COMMAND}" ]; then
+		if grep -qE '^ssh ' <<<"${__JWALTER_EXIT_COMMAND}" && which badge &>/dev/null; then
+			badge reset
+		fi
 		__JWALTER_EXIT_COMMAND=""
 		__JWALTER_EXIT_STATUS=""
 	else
@@ -532,6 +550,99 @@ prompt_svn() {
 
 # =============================================================================
 
+prompt_cvs() {
+	local CVS_STATUS_ADDED CVS_STATUS_CONFLICTED CVS_STATUS_DELETED CVS_STATUS_MODIFIED CVS_STATUS_REPLACED CVS_STATUS_UNVERSIONED CVS_STATUS_MISSING CVS_STATUS_OBSTRUCTED CVS_STATUS_LOCKED
+	# shellcheck disable=2034
+	local CVS_PATH CVS_REPO_URL CVS_REPO_ROOT CVS_REPO_UUID CVS_REV CVS_NODE CVS_LAST_REV CVS_LAST_DATE
+
+	if [ "${JWALTER_CVS_NET}" != "yes" ]; then
+		if is_network_path "$(pwd -P)" &>/dev/null; then
+			return 0
+		fi
+	fi
+
+	if ! which svn &>/dev/null; then
+		return 0
+	fi
+
+	eval "$(svn info 2>/dev/null | awk '/^Working Copy Root Path:/ {$1=$2=$3=$4=""; gsub(/^[\t ]+/,"",$0); printf("CVS_PATH=\"%s\"\n",$0);} /^URL:/ {$1=""; gsub(/^[\t ]+/,"",$0); printf("CVS_REPO_URL=\"%s\"\n",$0);} /^Repository Root:/ {$1=$2=""; gsub(/^[\t ]+/,"",$0); printf("CVS_REPO_ROOT=\"%s\"\n",$0);} /^Repository UUID:/ {$1=$2=""; gsub(/^[\t ]+/,"",$0); printf("CVS_REPO_UUID=\"%s\"\n",$0);} /^Revision:/ {$1=""; gsub(/^[\t ]+/,"",$0); printf("CVS_REV=\"%s\"\n",$0);} /^Node Kind:/ {$1=$2=""; gsub(/^[\t ]+/,"",$0); printf("CVS_NODE=\"%s\"\n",$0);} /^Last Changed Rev:/ {$1=$2=$3=""; gsub(/^[\t ]+/,"",$0); printf("CVS_LAST_REV=\"%s\"\n",$0);} /^Last Changed Date:/ {$1=$2=$3=""; gsub(/^[\t ]+/,"",$0); printf("CVS_LAST_DATE=\"%s\"\n",$0);}')"
+	if [ -z "${CVS_PATH}" ]; then
+		return 0
+	fi
+
+	if \
+		is_network_path "$(cd "${CVS_PATH}" &>/dev/null && pwd -P)" &>/dev/null && \
+		[ "${JWALTER_CVS_NET_FULL}" != "yes" ] && \
+		[ ! -e "${CVS_PATH}/${JWALTER_CVS_NET_FULL_OVERRIDE}" ] \
+	; then
+		eval "$(svn status --depth=immediate | awk '/^A/ {added++;} /^(C|.C|.{6}C)/ {conflicted++;} /^D/ {deleted++;} /^(M|.M)/ {modified++;} /^R/ {replaced++;} /^\?/ {unversioned++;} /^!/ {missing++;} /^~/ {obstructioned++;} /^..(L|...K)/ {locked++;} END {printf("CVS_STATUS_ADDED=%u\nCVS_STATUS_CONFLICTED=%u\nCVS_STATUS_DELETED=%u\nCVS_STATUS_MODIFIED=%u\nCVS_STATUS_REPLACED=%u\nCVS_STATUS_UNVERSIONED=%u\nCVS_STATUS_MISSING=%u\nCVS_STATUS_OBSTRUCTED=%u\nCVS_STATUS_LOCKED=%u\n",added,conflicted,deleted,modified,replaced,unversioned,missing,obstructioned,locked);}')"
+	else
+		pushd "${CVS_PATH}" &>/dev/null
+		eval "$(svn status | awk '/^A/ {added++;} /^(C|.C|.{6}C)/ {conflicted++;} /^D/ {deleted++;} /^(M|.M)/ {modified++;} /^R/ {replaced++;} /^\?/ {unversioned++;} /^!/ {missing++;} /^~/ {obstructioned++;} /^..(L|...K)/ {locked++;} END {printf("CVS_STATUS_ADDED=%u\nCVS_STATUS_CONFLICTED=%u\nCVS_STATUS_DELETED=%u\nCVS_STATUS_MODIFIED=%u\nCVS_STATUS_REPLACED=%u\nCVS_STATUS_UNVERSIONED=%u\nCVS_STATUS_MISSING=%u\nCVS_STATUS_OBSTRUCTED=%u\nCVS_STATUS_LOCKED=%u\n",added,conflicted,deleted,modified,replaced,unversioned,missing,obstructioned,locked);}')"
+		popd &>/dev/null
+	fi
+
+	if \
+		[ "${CVS_STATUS_CONFLICTED}" != "0" ] || \
+		[ "${CVS_STATUS_MISSING}" != "0" ] || \
+		[ "${CVS_STATUS_OBSTRUCTED}" != "0" ]
+	then
+		segment red black
+	elif \
+		[ "${CVS_STATUS_ADDED}" != "0" ] || \
+		[ "${CVS_STATUS_DELETED}" != "0" ] || \
+		[ "${CVS_STATUS_MODIFIED}" != "0" ] || \
+		[ "${CVS_STATUS_REPLACED}" != "0" ] || \
+		[ "${CVS_STATUS_UNVERSIONED}" != "0" ] || \
+		[ "${CVS_STATUS_LOCKED}" != "0" ]
+	then
+		segment yellow black
+	else
+		segment green black
+	fi
+
+	echo -n " (svn)→${CVS_REV}"
+
+	CVS_STATS=""
+	if [ "${CVS_STATUS_UNVERSIONED}" -gt 0 ]; then
+		CVS_STATS="${CVS_STATS}…${CVS_STATUS_UNVERSIONED}"
+	fi
+	if [ "${CVS_STATUS_ADDED}" -gt 0 ]; then
+		CVS_STATS="${CVS_STATS}+${CVS_STATUS_ADDED}"
+	fi
+	if [ "${CVS_STATUS_MODIFIED}" -gt 0 ]; then
+		CVS_STATS="${CVS_STATS}±${CVS_STATUS_MODIFIED}"
+	fi
+	if [ "${CVS_STATUS_DELETED}" -gt 0 ]; then
+		CVS_STATS="${CVS_STATS}-${CVS_STATUS_DELETED}"
+	fi
+	if [ "${CVS_STATUS_MISSING}" -gt 0 ]; then
+		CVS_STATS="${CVS_STATS}?${CVS_STATUS_MISSING}"
+	fi
+	if [ "${CVS_STATUS_CONFLICTED}" -gt 0 ] || [ "${CVS_STATUS_OBSTRUCTED}" -gt 0 ]; then
+		CVS_STATS="${CVS_STATS}!$((CVS_STATUS_CONFLICTED + CVS_STATUS_OBSTRUCTED))"
+	fi
+	if [ "${CVS_STATUS_LOCKED}" -gt 0 ]; then
+		CVS_STATS="${CVS_STATS}${CVS_STATUS_LOCKED}"
+	fi
+	if [ "${CVS_REV}" != "${CVS_LAST_REV}" ]; then
+		CVS_STATS="${CVS_STATS}↓$((CVS_LAST_REV - CVS_REV))"
+	fi
+
+	if [ -n "${CVS_STATS}" ]; then
+		echo -n " ${CVS_STATS}"
+	fi
+
+	if [ "${CVS_STATUS_OBSTRUCTED}" != "0" ]; then
+		echo -n " (Obstructed)"
+
+	elif [ "${CVS_STATUS_CONFLICTED}" != "0" ]; then
+		echo -n " (Conflicted)"
+	fi
+}
+
+# =============================================================================
+
 prompt_nvm() {
 	local NODE_VERSION NODE_NAME
 
@@ -631,6 +742,9 @@ build_prompt() {
 				;;
 			svn)
 				BUFFER="${BUFFER}prompt_svn;"
+				;;
+			cvs)
+				BUFFER="${BUFFER}prompt_cvs;"
 				;;
 			nvm)
 				BUFFER="${BUFFER}prompt_nvm;"
