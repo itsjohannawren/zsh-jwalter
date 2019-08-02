@@ -25,6 +25,18 @@ fi
 if ! grep -Eq '^(icon|count|countalways)$' <<<"${JWALTER_JOB_STYLE}"; then
 	JWALTER_JOB_STYLE="count" # "icon", "count", or "countalways"
 fi
+if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_MOUNT_RW}"; then
+	JWALTER_MOUNT_RW="no"
+fi
+if ! grep -Eq '^(yes|no)$' <<<"${JWALTER_MOUNTPOINT_RW}"; then
+	JWALTER_MOUNTPOINT_RW="no"
+fi
+if ! grep -Eq '^\.' <<<"${JWALTER_MOUNTPOINT_RW_FILE}"; then
+	JWALTER_MOUNTPOINT_RW_FILE=".jwalter-writeability-test"
+fi
+if ! grep -Eq '^(icon|text)$' <<<"${JWALTER_MOUNTPOINT_RW_STYLE}"; then
+	JWALTER_MOUNTPOINT_RW_STYLE="text" # "icon" or "text"
+fi
 if [ -z "${JWALTER_PROMPT_SECTIONS}" ]; then
 	JWALTER_PROMPT_SECTIONS="rootstatus userhost jobstatus exitstatus nvm rvm exectime path git svn"
 fi
@@ -140,6 +152,59 @@ is_network_path() {
 	else
 		return 1
 	fi
+}
+
+is_mount_rw() {
+	local TEST_MOUNT EXIT_STATUS
+	TEST_MOUNT="${1}"
+
+	EXIT_STATUS="$(awk "
+		BEGIN {
+			found = 0;
+		}
+		{
+			mount = \$1 \"==\" \$2;
+		}
+		mount == \"${TEST_MOUNT}\" && \$4 ~ /^(.+,|)rw(,.+|)\$/ {
+			printf (\"0\");
+			found = 1;
+			exit 0;
+		}
+		mount == \"${TEST_MOUNT}\" && \$4 ~ /^(.+,|)ro(,.+|)\$/ {
+			printf (\"1\");
+			found = 1;
+			exit 1;
+		}
+		mount == \"${TEST_MOUNT}\" && \$4 !~ /^(.+,|)r[ow](,.+|)\$/ {
+			printf (\"2\");
+			found = 1;
+			exit 2;
+		}
+
+		END {
+			if (found == 0) {
+				printf (\"2\");
+				exit 2;
+			}
+		}
+	" /proc/mounts 2>/dev/null)"
+
+	echo "${EXIT_STATUS}"
+	return "${EXIT_STATUS}"
+}
+
+is_directory_writeable() {
+	local TEST_DIRECTORY
+	TEST_DIRECTORY="${1}"
+
+	if touch "${TEST_DIRECTORY}/${JWALTER_MOUNTPOINT_RW_FILE}" &>/dev/null; then
+		rm -f "${TEST_DIRECTORY}/${JWALTER_MOUNTPOINT_RW_FILE}" &>/dev/null
+		echo "0"
+		return 0
+	fi
+
+	echo "1"
+	return 1
 }
 
 # =============================================================================
@@ -304,12 +369,56 @@ prompt_userhost() {
 # =============================================================================
 
 prompt_path() {
+	local BUFFER NET_FS MOUNT MOUNT_RW MOUNT_RW_EXTRA
 	BUFFER=""
+
 	NET_FS="$(is_network_path "$(pwd -P)")"
 	# shellcheck disable=2181
 	if [ "$?" = "0" ]; then
 		BUFFER="${BUFFER}, ${NET_FS}"
 	fi
+
+	#JWALTER_MOUNT_RW="no"
+	#JWALTER_MOUNTPOINT_RW="no"
+	#JWALTER_MOUNTPOINT_RW_FILE=".jwalter-writeability-test"
+
+	if [ "${JWALTER_MOUNTPOINT_RW_STYLE}" != "off" ]; then
+		MOUNT="$(df . 2>/dev/null | tail -n 1 | awk '{printf ("%s==%s", $1, $6);}')"
+		MOUNT_RW=""
+
+		if [ "${JWALTER_MOUNT_RW}" != "yes" ] && [ "${JWALTER_MOUNTPOINT_RW}" = "yes" ]; then
+			MOUNT_RW="$(is_directory_writeable "${MOUNT#*==}" 2>/dev/null)"
+		elif [ "${JWALTER_MOUNT_RW}" = "yes" ]; then
+			MOUNT_RW="$(is_mount_rw "${MOUNT}" 2>/dev/null)"
+			if [ "${MOUNT_RW}" != "1" ] && [ "${JWALTER_MOUNTPOINT_RW}" = "yes" ] && ! grep -qE '^(cgroup|configfs|debugfs|devpts|devtmpfs|hugetlbfs|mqueue|proc|pstore|securityfs|sunrpc|sysfs)$' <<<"${MOUNT%%==*}"; then
+				MOUNT_RW="$(is_directory_writeable "${MOUNT#*==}" 2>/dev/null)"
+				MOUNT_RW_EXTRA="+"
+			fi
+		fi
+
+		#BUFFER="${BUFFER}, ${MOUNT#*==}"
+
+		if [ "${MOUNT_RW}" = "0" ]; then
+			if [ "${JWALTER_MOUNTPOINT_RW_STYLE}" = "text" ]; then
+				BUFFER="${BUFFER}, rw${MOUNT_RW_EXTRA}"
+			else
+				BUFFER="${BUFFER}, ✎${MOUNT_RW_EXTRA}"
+			fi
+		elif [ "${MOUNT_RW}" = "1" ]; then
+			if [ "${JWALTER_MOUNTPOINT_RW_STYLE}" = "text" ]; then
+				BUFFER="${BUFFER}, ro${MOUNT_RW_EXTRA}"
+			else
+				BUFFER="${BUFFER}, 🚫${MOUNT_RW_EXTRA}"
+			fi
+		#else
+		#	if [ "${JWALTER_MOUNTPOINT_RW_STYLE}" = "text" ]; then
+		#		BUFFER="${BUFFER}, unk${MOUNT_RW_EXTRA}"
+		#	else
+		#		BUFFER="${BUFFER}, ❓${MOUNT_RW_EXTRA}"
+		#	fi
+		fi
+	fi
+
 	BUFFER="$(sed -e 's/^, //' <<<"${BUFFER}")"
 
 	if [ -n "${BUFFER}" ]; then
