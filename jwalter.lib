@@ -276,7 +276,7 @@ precmd() {
 	fi
 	if [ -n "${__JWALTER_EXIT_COMMAND}" ]; then
 		if grep -qE '^ssh ' <<<"${__JWALTER_EXIT_COMMAND}" && which badge &>/dev/null; then
-			badge reset
+			badge --reset
 		fi
 		__JWALTER_EXIT_COMMAND=""
 		__JWALTER_EXIT_STATUS=""
