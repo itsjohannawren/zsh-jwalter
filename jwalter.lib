@@ -1,4 +1,4 @@
-# jwalter's Theme - https://github.com/jeffwalter/zsh-jwalter
+# jwalter's Theme - https://github.com/itsjohannawren/zsh-jwalter
 # Based heavily on agnoster's Theme - https://gist.github.com/3712874
 
 if [ -z "${JWALTER_NET_FS}" ]; then
@@ -10,7 +10,7 @@ fi
 if ! grep -Eq '^[1-9][0-9]*$' <<< "${JWALTER_HOSTNAME_PARTS}"; then
 	JWALTER_HOSTNAME_PARTS="1"
 fi
-if [ -z "${JWALTER_HOSTNAME_DIVISORS}" ] || ! grep -Eiq '^[a-z0-9_-, ]+$' <<<"${JWALTER_HOSTNAME_DIVISORS}"; then
+if [ -z "${JWALTER_HOSTNAME_DIVISORS}" ] || ! grep -Eiq '^[a-z0-9_, -]+$' <<<"${JWALTER_HOSTNAME_DIVISORS}"; then
 	JWALTER_HOSTNAME_DIVISORS=""
 fi
 if ! grep -Eq '^(full|aliased)$' <<<"${JWALTER_PATH_STYLE}"; then

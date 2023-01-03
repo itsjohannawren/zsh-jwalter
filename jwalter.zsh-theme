@@ -11,7 +11,7 @@ if [ "${JWALTER_UPDATE_INTERVAL}" != "0" ]; then
 		UPDATE_RESPONSE=""
 		while [ -z "${UPDATE_RESPONSE}" ]; do
 			echo -n "Would you like to update zsh-jwalter? [y|N] "
-			read UPDATE_RESPONSE
+			read -r UPDATE_RESPONSE
 			if grep -Eiq '^y(es)?$' <<<"${UPDATE_RESPONSE}"; then
 				UPDATE_RESPONSE="y"
 			elif grep -Eiq '^no?$' <<<"${UPDATE_RESPONSE}"; then
